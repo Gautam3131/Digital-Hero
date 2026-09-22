@@ -31,6 +31,8 @@ jobs:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
           BACKEND_PUBLIC_URL: ${{ vars.BACKEND_PUBLIC_URL }}
           FRONTEND_PUBLIC_URL: ${{ vars.FRONTEND_PUBLIC_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
           missing=()
           [ -n "$VERCEL_TOKEN" ] || missing+=(VERCEL_TOKEN)
@@ -39,6 +41,8 @@ jobs:
           [ -n "$RENDER_DEPLOY_HOOK_URL" ] || missing+=(RENDER_DEPLOY_HOOK_URL)
           [ -n "$BACKEND_PUBLIC_URL" ] || missing+=(BACKEND_PUBLIC_URL)
           [ -n "$FRONTEND_PUBLIC_URL" ] || missing+=(FRONTEND_PUBLIC_URL)
+          [ -n "$GEMINI_API_KEY" ] || missing+=(GEMINI_API_KEY)
+          [ -n "$MONGODB_URI" ] || missing+=(MONGODB_URI)
           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Missing production configuration: %s\n' "${missing[*]}"
             exit 1
@@ -50,12 +54,21 @@ jobs:
     needs: validate-deployment-config
     runs-on: ubuntu-latest
     environment: production
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
     permissions:
       contents: read
       packages: write
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Verify backend secrets are injected
+        run: |
+          test -n "$GEMINI_API_KEY"
+          test -n "$MONGODB_URI"
+          echo "Backend runtime secrets are present and masked."
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3

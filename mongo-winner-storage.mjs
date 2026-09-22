@@ -1,12 +1,14 @@
 const dataApiUrl = (process.env.MONGODB_DATA_API_URL || "").replace(/\/$/, "")
 const dataApiKey = process.env.MONGODB_DATA_API_KEY || ""
+const mongoUri = process.env.MONGODB_URI || ""
 const dataSource = process.env.MONGODB_DATA_SOURCE || "Cluster0"
 const database = process.env.MONGODB_DATABASE || "digital_heroes"
 const collection = process.env.MONGODB_WINNER_COLLECTION || "winner_workflows"
+let nativeClientPromise
 
 export const mongoWinnerStorage = {
-  configured: Boolean(dataApiUrl && dataApiKey),
-  provider: "MongoDB Atlas Data API",
+  configured: Boolean((dataApiUrl && dataApiKey) || mongoUri),
+  provider: mongoUri ? "MongoDB native driver" : dataApiUrl && dataApiKey ? "MongoDB Atlas Data API" : "not configured",
   database,
   collection,
 }
@@ -23,7 +25,7 @@ async function request(action, body) {
 }
 
 export async function mirrorWinnerWorkflow({ winner, event, payout = null }) {
-  if (!mongoWinnerStorage.configured) return { stored: false, reason: "MongoDB Atlas Data API is not configured." }
+  if (!mongoWinnerStorage.configured) return { stored: false, reason: "MongoDB is not configured." }
   const document = {
     winnerId: winner.id,
     drawId: winner.drawId || winner.draw_id,
@@ -43,7 +45,17 @@ export async function mirrorWinnerWorkflow({ winner, event, payout = null }) {
     updatedAt: event.createdAt,
   }
   try {
-    await request("updateOne", { filter: { winnerId: winner.id }, update: { $set: document, $push: { events: event } }, upsert: true })
+    if (dataApiUrl && dataApiKey) {
+      await request("updateOne", { filter: { winnerId: winner.id }, update: { $set: document, $push: { events: event } }, upsert: true })
+    } else {
+      const { MongoClient } = await import("mongodb")
+      if (!nativeClientPromise) {
+        const client = new MongoClient(mongoUri)
+        nativeClientPromise = client.connect().then(() => client)
+      }
+      const client = await nativeClientPromise
+      await client.db(database).collection(collection).updateOne({ winnerId: winner.id }, { $set: document, $push: { events: event } }, { upsert: true })
+    }
     return { stored: true }
   } catch (error) {
     console.error(`MongoDB winner mirror failed for ${winner.id}: ${error.message}`)

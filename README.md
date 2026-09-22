@@ -78,7 +78,8 @@ Set these server-side environment variables in the deployment environment:
 - `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD`: optional local bootstrap credentials
 - `GEMINI_API_KEY`: server-side Gemini API key for AI support; never expose it to the browser
 - `GEMINI_MODEL`: optional Gemini model name, defaulting to `gemini-2.0-flash`
-- `MONGODB_DATA_API_URL`, `MONGODB_DATA_API_KEY`, `MONGODB_DATA_SOURCE`, `MONGODB_DATABASE`, and `MONGODB_WINNER_COLLECTION`: optional MongoDB Atlas Data API configuration for mirrored winner cases and workflow audit events
+- `MONGODB_URI`: server-only MongoDB connection string for the native winner workflow mirror
+- `MONGODB_DATA_API_URL`, `MONGODB_DATA_API_KEY`, `MONGODB_DATA_SOURCE`, `MONGODB_DATABASE`, and `MONGODB_WINNER_COLLECTION`: optional MongoDB Atlas Data API alternative for mirrored winner cases and workflow audit events
 
 ## Mock Stripe flow
 

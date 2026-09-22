@@ -22,8 +22,10 @@ Add these Environment Secrets:
 | --- | --- |
 | `VERCEL_TOKEN` | Scoped Vercel deployment token |
 | `RENDER_DEPLOY_HOOK_URL` | Render deploy hook for the backend service |
+| `GEMINI_API_KEY` | Server-only Gemini API key injected into the backend deployment job |
+| `MONGODB_URI` | Server-only MongoDB connection string injected into the backend deployment job |
 
-The workflow uses the built-in `GITHUB_TOKEN` for GHCR package publishing. No API key should be committed to this repository or exposed through a `VITE_*` variable.
+The workflow uses the built-in `GITHUB_TOKEN` for GHCR package publishing. No API key should be committed to this repository or exposed through a `VITE_*` variable. The backend job maps `GEMINI_API_KEY` and `MONGODB_URI` from repository secrets into masked environment variables; the Render service must use the same names in its encrypted runtime environment.
 
 ## Backend Runtime Variables
 
@@ -42,6 +44,7 @@ GEMINI_API_KEY=replace_me
 GEMINI_MODEL=gemini-2.0-flash
 MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/replace_me/endpoint/data/v1
 MONGODB_DATA_API_KEY=replace_me
+MONGODB_URI=mongodb+srv://username:password@cluster.example.mongodb.net/digital_heroes
 MONGODB_DATA_SOURCE=Cluster0
 MONGODB_DATABASE=digital_heroes
 MONGODB_WINNER_COLLECTION=winner_workflows

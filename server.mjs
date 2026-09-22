@@ -14,8 +14,7 @@ const databasePath = process.env.DH_DB_PATH || join(dataDir, "digital-heroes.sql
 mkdirSync(join(databasePath, ".."), { recursive: true })
 
 const app = express()
-const port = Number(process.env.PORT || 8787)
-const host = process.env.HOST || "0.0.0.0"
+const port = process.env.PORT || "8787"
 const isProduction = process.env.NODE_ENV === "production"
 const sessionTtlSeconds = 60 * 60 * 24 * 30
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || ""
@@ -1151,4 +1150,4 @@ app.use((error, _req, res, _next) => {
   return res.status(500).json({ message: "Unexpected server error." })
 })
 
-app.listen(port, host, () => console.log(`Digital Heroes Express server listening on http://${host}:${port}`))
+app.listen(port, "0.0.0.0", () => console.log(`Digital Heroes Express server listening on 0.0.0.0:${port}`))

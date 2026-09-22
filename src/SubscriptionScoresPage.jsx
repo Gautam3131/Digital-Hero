@@ -4,6 +4,7 @@ import { Html, OrbitControls, Sparkles as SparkleField } from "@react-three/drei
 import { ArrowLeft, ArrowUpRight, Check, ChevronRight, CreditCard, Edit3, HeartHandshake, LockKeyhole, RotateCcw, Sparkles, Trash2, Trophy, X, Zap } from "lucide-react"
 import "./subscription-page.css"
 import { apiFetch } from "./apiBase"
+import AuthPanel from "./AuthPanel"
 
 const emptySnapshot = { activeMembers: 0, charityTotal: 0, nextDraw: "—", nextDrawDate: "", featuredCharity: null, charities: [], plans: [] }
 const today = () => new Date().toISOString().slice(0, 10)
@@ -110,14 +111,7 @@ function CheckoutPanel({ plan, charity, onCharityChange, snapshot, session, subs
 }
 
 function LoginPanel({ onAuthenticated }) {
-  const [status, setStatus] = useState("idle")
-  const [message, setMessage] = useState("")
-  async function submit(event) {
-    event.preventDefault(); setStatus("loading"); setMessage("")
-    const form = new FormData(event.currentTarget)
-    try { const data = await readJson("/api/auth/login", { method: "POST", body: JSON.stringify({ email: form.get("email"), password: form.get("password") }) }); onAuthenticated(data.member) } catch (error) { setMessage(error.message || "Sign in could not be completed."); setStatus("error") }
-  }
-  return <form className="score-form" onSubmit={submit}><div className="checkout-step"><span>01</span><div><strong>Sign in to manage scores</strong><small>Members can add, edit, and remove their own Stableford scores.</small></div><LockKeyhole size={16} /></div><label>Email<input autoComplete="email" name="email" placeholder="member@example.com" required type="email" /></label><label>Password<input autoComplete="current-password" name="password" placeholder="Your password" required type="password" /></label>{status === "error" ? <p className="score-status score-status-error" role="alert">{message}</p> : null}<button className="button button-primary full-width" disabled={status === "loading"} type="submit">{status === "loading" ? "Signing in..." : "Sign in to scores"}<ArrowUpRight size={16} /></button></form>
+  return <AuthPanel backHref="/" description="Sign in to add, edit, and remove your latest five Stableford scores." eyebrow="Score management / 003" onSubmit={async ({ email, password }) => { const data = await readJson("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); await onAuthenticated(data.member) }} redirectPath="/subscription-scores" submitLabel="Sign in to scores" title="Keep your score moving" />
 }
 
 function SubscriptionStatus({ session, subscription, onRefresh, onLogout }) {

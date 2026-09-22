@@ -1,4 +1,6 @@
-const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "")
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL || ""
+const productionApiBase = "https://digital-heroes-api-production.up.railway.app"
+const apiBase = (configuredApiBase || (import.meta.env.PROD ? productionApiBase : "")).replace(/\/$/, "")
 
 export function apiUrl(path) {
   return `${apiBase}${path}`

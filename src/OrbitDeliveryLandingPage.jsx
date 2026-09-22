@@ -7,17 +7,58 @@ import "./orbit-delivery-page.css"
 
 const emptySnapshot = { activeMembers: 0, charityTotal: 0, prizePoolMinor: 0, nextDraw: "—", featuredCharity: null, charities: [], plans: [] }
 
+function WalkingCourier({ paused }) {
+  const courier = useRef(null)
+  const leftArm = useRef(null)
+  const rightArm = useRef(null)
+  const leftLeg = useRef(null)
+  const rightLeg = useRef(null)
+
+  useFrame((state) => {
+    if (paused) return
+    const walk = state.clock.elapsedTime * 7
+    const stride = Math.sin(walk)
+    const bob = Math.abs(Math.cos(walk))
+    if (courier.current) {
+      courier.current.position.y = .43 + bob * .025
+      courier.current.rotation.z = stride * .035
+    }
+    if (leftArm.current) leftArm.current.rotation.z = -.28 + stride * .48
+    if (rightArm.current) rightArm.current.rotation.z = .28 - stride * .48
+    if (leftLeg.current) leftLeg.current.rotation.z = stride * .55
+    if (rightLeg.current) rightLeg.current.rotation.z = -stride * .55
+  })
+
+  return <group ref={courier} position={[1.43, .43, .08]} rotation={[0, -.45, .08]}>
+    <mesh position={[0, -.12, 0]}><capsuleGeometry args={[.17, .38, 8, 16]} /><meshStandardMaterial color="#f36d4e" roughness={.52} /></mesh>
+    <mesh position={[0, .27, 0]}><sphereGeometry args={[.16, 20, 20]} /><meshStandardMaterial color="#ffc9a6" roughness={.72} /></mesh>
+    <mesh position={[0, .4, 0]} rotation={[0, 0, -.12]}><boxGeometry args={[.26, .07, .22]} /><meshStandardMaterial color="#385bd1" roughness={.45} /></mesh>
+    <mesh position={[.12, -.22, -.16]} rotation={[0, 0, -.25]}><boxGeometry args={[.25, .18, .28]} /><meshStandardMaterial color="#f9a340" roughness={.7} /></mesh>
+    <group ref={leftArm} position={[-.18, .02, .02]} rotation={[0, 0, -.28]}><mesh position={[0, -.13, 0]}><capsuleGeometry args={[.045, .22, 6, 10]} /><meshStandardMaterial color="#f36d4e" /></mesh><mesh position={[0, -.27, 0]}><sphereGeometry args={[.055, 12, 12]} /><meshStandardMaterial color="#ffc9a6" /></mesh></group>
+    <group ref={rightArm} position={[.18, .02, .02]} rotation={[0, 0, .28]}><mesh position={[0, -.13, 0]}><capsuleGeometry args={[.045, .22, 6, 10]} /><meshStandardMaterial color="#f36d4e" /></mesh><mesh position={[0, -.27, 0]}><sphereGeometry args={[.055, 12, 12]} /><meshStandardMaterial color="#ffc9a6" /></mesh></group>
+    <group ref={leftLeg} position={[-.08, -.32, 0]}><mesh position={[0, -.13, 0]}><capsuleGeometry args={[.05, .23, 6, 10]} /><meshStandardMaterial color="#173d86" /></mesh><mesh position={[0, -.28, .04]} rotation={[0, 0, .12]}><boxGeometry args={[.11, .07, .2]} /><meshStandardMaterial color="#f7a64a" /></mesh></group>
+    <group ref={rightLeg} position={[.08, -.32, 0]}><mesh position={[0, -.13, 0]}><capsuleGeometry args={[.05, .23, 6, 10]} /><meshStandardMaterial color="#173d86" /></mesh><mesh position={[0, -.28, .04]} rotation={[0, 0, -.12]}><boxGeometry args={[.11, .07, .2]} /><meshStandardMaterial color="#f7a64a" /></mesh></group>
+  </group>
+}
+
 function DeliveryPlanet({ paused }) {
   const planet = useRef(null)
-  const courier = useRef(null)
   useFrame((state, delta) => {
-    if (!planet.current || !courier.current) return
-    if (!paused) planet.current.rotation.y += delta * .16
-    courier.current.position.y = .18 + Math.sin(state.clock.elapsedTime * 2.2) * .035
-    courier.current.rotation.z = Math.sin(state.clock.elapsedTime * 1.6) * .04
+    if (!planet.current || paused) return
+    planet.current.rotation.y += delta * .16
   })
   const land = [[-.7, .55, 1.26, .5, .25, .12], [.55, .7, 1.25, .42, .22, .12], [-.75, -.45, 1.24, .35, .2, .16], [.5, -.48, 1.2, .48, .18, .14], [.05, .05, 1.4, .23, .1, .1]]
-  return <group ref={planet}><mesh><sphereGeometry args={[1.48, 64, 64]} /><meshPhysicalMaterial color="#8db9ee" emissive="#173d86" emissiveIntensity={.18} metalness={.05} roughness={.7} /></mesh><mesh scale={1.02}><sphereGeometry args={[1.48, 32, 32]} /><meshBasicMaterial color="#d8eaff" transparent opacity={.18} wireframe /></mesh>{land.map((shape, index) => <mesh key={index} position={shape.slice(0, 3)} scale={shape.slice(3)}><sphereGeometry args={[1, 20, 12]} /><meshStandardMaterial color={index % 2 ? "#7a9cf0" : "#5b7fde"} roughness={.8} /></mesh>)}<mesh rotation={[Math.PI / 2.1, .2, .2]} scale={1.3}><torusGeometry args={[1.3, .012, 8, 128]} /><meshBasicMaterial color="#5178ed" transparent opacity={.55} /></mesh><mesh rotation={[.8, Math.PI / 2.7, 0]} scale={1.48}><torusGeometry args={[1.3, .009, 8, 128]} /><meshBasicMaterial color="#a8c8ff" transparent opacity={.55} /></mesh><group ref={courier} position={[1.62, .18, .05]} rotation={[0, -.45, .08]}><mesh position={[0, -.12, 0]}><capsuleGeometry args={[.17, .38, 8, 16]} /><meshStandardMaterial color="#f36d4e" roughness={.52} /></mesh><mesh position={[0, .27, 0]}><sphereGeometry args={[.16, 20, 20]} /><meshStandardMaterial color="#ffc9a6" roughness={.72} /></mesh><mesh position={[0, .4, 0]} rotation={[0, 0, -.12]}><boxGeometry args={[.26, .07, .22]} /><meshStandardMaterial color="#385bd1" roughness={.45} /></mesh><mesh position={[.12, -.22, .02]} rotation={[0, 0, -.25]}><boxGeometry args={[.25, .18, .28]} /><meshStandardMaterial color="#f9a340" roughness={.7} /></mesh><mesh position={[-.07, -.48, 0]} rotation={[0, 0, .15]}><capsuleGeometry args={[.045, .2, 6, 10]} /><meshStandardMaterial color="#173d86" /></mesh><mesh position={[.1, -.48, 0]} rotation={[0, 0, -.15]}><capsuleGeometry args={[.045, .2, 6, 10]} /><meshStandardMaterial color="#173d86" /></mesh></group></group>
+  const routeLights = [[-.96, .2, 1.12], [-.35, .98, 1.08], [.7, .38, 1.22], [.2, -.96, 1.12]]
+  return <group ref={planet}>
+    <mesh><sphereGeometry args={[1.48, 64, 64]} /><meshPhysicalMaterial color="#8db9ee" emissive="#173d86" emissiveIntensity={.18} metalness={.05} roughness={.7} /></mesh>
+    <mesh scale={1.035}><sphereGeometry args={[1.48, 32, 32]} /><meshBasicMaterial color="#d8eaff" transparent opacity={.16} wireframe /></mesh>
+    <mesh scale={1.075}><sphereGeometry args={[1.48, 32, 32]} /><meshBasicMaterial color="#a8c8ff" transparent opacity={.09} wireframe /></mesh>
+    {land.map((shape, index) => <mesh key={index} position={shape.slice(0, 3)} scale={shape.slice(3)}><sphereGeometry args={[1, 20, 12]} /><meshStandardMaterial color={index % 2 ? "#7a9cf0" : "#5b7fde"} roughness={.8} /></mesh>)}
+    {routeLights.map((position, index) => <mesh key={index} position={position}><sphereGeometry args={[.035, 12, 12]} /><meshBasicMaterial color={index === 2 ? "#f7a64a" : "#d7f99a"} /></mesh>)}
+    <mesh rotation={[Math.PI / 2.1, .2, .2]} scale={1.3}><torusGeometry args={[1.3, .012, 8, 128]} /><meshBasicMaterial color="#5178ed" transparent opacity={.55} /></mesh>
+    <mesh rotation={[.8, Math.PI / 2.7, 0]} scale={1.48}><torusGeometry args={[1.3, .009, 8, 128]} /><meshBasicMaterial color="#a8c8ff" transparent opacity={.55} /></mesh>
+    <WalkingCourier paused={paused} />
+  </group>
 }
 
 function OrbitStage({ paused, onToggle }) {

@@ -1,0 +1,13 @@
+node_modules
+dist
+data
+.git
+.github
+outputs
+uploads
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+.env.*
+!.env.example

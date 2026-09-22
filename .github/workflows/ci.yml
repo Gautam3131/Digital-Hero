@@ -1,0 +1,58 @@
+name: Digital Heroes CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate application
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      STRIPE_MOCK_MODE: "true"
+      STRIPE_WEBHOOK_SECRET: mock-webhook-secret
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check server modules
+        run: |
+          node --check server.mjs
+          node --check mongo-winner-storage.mjs
+
+      - name: Build React frontend
+        run: npm run build
+
+      - name: Run backend and integration tests
+        run: npm run test:e2e
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digital-heroes-dist-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 7

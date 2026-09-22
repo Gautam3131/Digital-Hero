@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: digital-heroes-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    disk:
+      name: digital-heroes-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8787"
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: MONGODB_DATA_API_URL
+        sync: false
+      - key: MONGODB_DATA_API_KEY
+        sync: false
+      - key: MONGODB_DATA_SOURCE
+        value: Cluster0
+      - key: MONGODB_DATABASE
+        value: digital_heroes
+      - key: MONGODB_WINNER_COLLECTION
+        value: winner_workflows

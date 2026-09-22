@@ -2,7 +2,6 @@ FROM node:22-bookworm-slim
 
 ARG GIT_SHA=local
 ENV NODE_ENV=production
-ENV PORT=8787
 ENV GITHUB_SHA=$GIT_SHA
 
 WORKDIR /app

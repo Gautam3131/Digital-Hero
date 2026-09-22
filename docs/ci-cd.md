@@ -81,4 +81,4 @@ These variables are intentionally public. They must contain URLs only. Stripe se
 5. Set `PUBLIC_BASE_URL` to the backend HTTPS origin and `FRONTEND_ORIGIN` to the Vercel HTTPS origin.
 6. Set `BACKEND_PUBLIC_URL` and `FRONTEND_PUBLIC_URL` in GitHub, then run `Deploy` manually once to verify the wiring.
 
-The backend health endpoint is `GET /health`. A successful deployment returns `{ "ok": true, "service": "digital-heroes-api" }`.
+The backend health endpoint is `GET /health`. A successful deployment returns `{ "ok": true, "service": "digital-heroes-api" }` and reports the selected payment provider under `payments.provider`. Razorpay is preferred when both Razorpay credentials are present; Stripe remains the fallback provider.

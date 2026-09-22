@@ -1,6 +1,6 @@
 # Digital Heroes
 
-The Digital Heroes platform: an impact-led public landing page, a Core Objectives / User Roles system map, a connected Subscription / Score Management experience, an authenticated Registered Subscriber Dashboard, a public Past Draws / Charity Impact archive, and an administrator control room.
+The Digital Heroes platform: an impact-led public landing page with live INR pool telemetry, a Core Objectives / User Roles system map, a connected Subscription / Score Management experience, authenticated Registered Subscriber and member-briefing surfaces, a public Past Draws / Charity Impact archive, a Gemini-powered Help Center, and a role-protected administrator control room.
 
 ## Run
 
@@ -24,6 +24,8 @@ Open `http://localhost:8787/admin-dashboard` for the administrator control room.
 
 Open `http://localhost:8787/admin-content` for the role-protected content publishing studio.
 
+Open `http://localhost:8787/member-content` for the authenticated registered-member briefing channel.
+
 Open `http://localhost:8787/winner-verification` for the dedicated Winner Verification & Payout Management proofroom. The local demo admin is `admin@digitalheroes.local` / `demo-admin`.
 
 Open `http://localhost:8787/past-draws` for the public draw archive and charity impact ledger.
@@ -40,6 +42,8 @@ The server exposes:
 - `GET /api/charity-impact` for contribution totals grouped by cause
 - `GET /api/help/articles` for searchable support articles and categories
 - `GET /api/help/articles/:slug` for a full support article
+- `GET /api/help/status` for public knowledge-base and Gemini availability status
+- `GET /api/member/content` for authenticated registered-member briefings
 - `POST /api/help/chat` for the server-side Gemini support assistant or local knowledge-base fallback
 - `POST /api/subscribe` for early-list signup validation
 - `POST /api/checkout/session` for a live INR Stripe Checkout Session
@@ -64,7 +68,7 @@ The server exposes:
 
 ## Current scope
 
-The root page communicates what users do, how the draw works, where charity money goes, and the subscription call to action. Page two maps the six Core Objectives and the three PRD User Roles. Page three covers INR monthly/yearly Stripe subscriptions, signed webhook state changes, authenticated score management, and five-score Stableford management. The Registered Subscriber Dashboard aggregates live member data, score-window state, published draw entries, reward proof and payout state, plan perks, cancellation, and charity impact. The public archive exposes only published draws with server-side search, month filtering, winning numbers, prize tiers, and contribution totals. The administrator control room adds frequency-weighted draw simulation/publication, prize tiers, jackpot rollover, charity controls, and the dedicated Winner Verification & Payout Management proofroom. The proofroom enforces proof-before-approval, admin rejection notes, verified-only payout completion, payout references, immutable SQLite audit events, and an optional MongoDB Atlas Data API mirror. The current auth bootstrap is intended for development; production accounts should be connected to the project’s identity provider before launch.
+The root page communicates what users do, how the draw works, where charity money goes, and the subscription call to action with live API-backed INR pool totals. Page two maps the six Core Objectives and the three PRD User Roles. Page three covers INR monthly/yearly Stripe subscriptions, signed webhook state changes, authenticated score management, and five-score Stableford management. The Registered Subscriber Dashboard aggregates live member data, score-window state, published draw entries, reward proof and payout state, plan perks, cancellation, and charity impact. The member briefing channel exposes active content published specifically for registered members, while the Help Center exposes only public content and routes support questions through Gemini when configured, with a knowledge-base fallback. The public archive exposes only published draws with server-side search, month filtering, winning numbers, prize tiers, and contribution totals. The administrator control room adds frequency-weighted draw simulation/publication, prize tiers, jackpot rollover, charity controls, audience-scoped content publishing, and the dedicated Winner Verification & Payout Management proofroom. The proofroom enforces proof-before-approval, admin rejection notes, verified-only payout completion, payout references, immutable SQLite audit events, and an optional MongoDB Atlas Data API mirror. The current auth bootstrap is intended for development; production accounts should be connected to the project’s identity provider before launch.
 
 ## Stripe configuration
 
@@ -80,7 +84,7 @@ Set these server-side environment variables in the deployment environment:
 - `DEMO_SUBSCRIBER_EMAIL` and `DEMO_SUBSCRIBER_PASSWORD`: optional local bootstrap credentials
 - `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD`: optional local bootstrap credentials
 - `GEMINI_API_KEY`: server-side Gemini API key for AI support; never expose it to the browser
-- `GEMINI_MODEL`: optional Gemini model name, defaulting to `gemini-2.0-flash`
+- `GEMINI_MODEL`: optional Gemini model name, defaulting to `gemini-2.5-flash`
 - `MONGODB_URI`: server-only MongoDB connection string for the native application snapshot and winner workflow mirror
 - `MONGODB_DATA_API_URL`, `MONGODB_DATA_API_KEY`, `MONGODB_DATA_SOURCE`, `MONGODB_DATABASE`, and `MONGODB_WINNER_COLLECTION`: optional MongoDB Atlas Data API alternative for application snapshots and mirrored winner workflow events
 

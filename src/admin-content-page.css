@@ -44,8 +44,9 @@
 .content-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 28px; }
 .content-fields label { display: grid; gap: 8px; color: var(--paper-muted); font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .content-fields label.wide { grid-column: 1 / -1; }
-.content-fields input, .content-fields textarea, .content-login-card input { width: 100%; padding: 13px 14px; border: 1px solid rgba(244, 242, 235, .16); border-radius: 3px; outline: none; background: rgba(8, 20, 26, .62); color: var(--paper); font: 14px var(--sans); letter-spacing: 0; text-transform: none; resize: vertical; }
-.content-fields input:focus, .content-fields textarea:focus, .content-login-card input:focus { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(215, 250, 107, .08); }
+.content-fields input, .content-fields textarea, .content-fields select, .content-login-card input { width: 100%; padding: 13px 14px; border: 1px solid rgba(244, 242, 235, .16); border-radius: 3px; outline: none; background: rgba(8, 20, 26, .62); color: var(--paper); font: 14px var(--sans); letter-spacing: 0; text-transform: none; resize: vertical; }
+.content-fields select { appearance: none; cursor: pointer; }
+.content-fields input:focus, .content-fields textarea:focus, .content-fields select:focus, .content-login-card input:focus { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(215, 250, 107, .08); }
 .content-save { margin-top: 27px; }
 .content-notice { display: flex; align-items: center; gap: 8px; margin: 15px 0 -18px; padding: 11px 14px; border: 1px solid rgba(215, 250, 107, .25); background: rgba(215, 250, 107, .07); color: var(--lime); font: 11px var(--mono); }
 .content-error { color: var(--coral); font-size: 12px; line-height: 1.5; }

@@ -5,6 +5,7 @@ import RolesObjectivesPage from "./RolesObjectivesPage"
 import SubscriptionScoresPage from "./SubscriptionScoresPage"
 import AdminDashboardPage from "./AdminDashboardPage"
 import AdminContentPage from "./AdminContentPage"
+import MemberContentPage from "./MemberContentPage"
 import PastDrawsPage from "./PastDrawsPage"
 import HelpCenterPage from "./HelpCenterPage"
 import SubscriberDashboardPage from "./SubscriberDashboardPage"
@@ -284,6 +285,19 @@ function SignupModal({ plan, planName, charity, onClose }) {
   )
 }
 
+function LivePoolBadge({ snapshot, status }) {
+  const amountMinor = Number(snapshot.pool?.amountMinor ?? snapshot.prizePoolMinor ?? 0)
+  const updatedAt = snapshot.pool?.updatedAt ? new Date(snapshot.pool.updatedAt) : null
+  const updatedLabel = updatedAt && !Number.isNaN(updatedAt.valueOf()) ? `updated ${updatedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : status === "error" ? "API unavailable" : "waiting for first sync"
+  return <span className={`ticker-pool ticker-pool-${status}`}><CircleDollarSign size={14} /><b>{status === "ready" ? `INR ${Math.round(amountMinor / 100).toLocaleString("en-IN")}` : "INR —"}</b><small>{updatedLabel}</small></span>
+}
+
+function LivePoolVisual({ snapshot, status }) {
+  const amountMinor = Number(snapshot.pool?.amountMinor ?? snapshot.prizePoolMinor ?? 0)
+  const allocations = [{ label: "5-number match", width: 40, tone: "lime", note: "jackpot" }, { label: "4-number match", width: 35, tone: "aqua", note: "tier" }, { label: "3-number match", width: 25, tone: "coral", note: "tier" }]
+  return <div className="pool-visual"><div className="pool-live-orbit" aria-hidden="true"><span /><span /><span /></div><div className="pool-total"><span>Live pool / INR</span><strong>{status === "ready" ? Math.round(amountMinor / 100).toLocaleString("en-IN") : "—"}</strong><small>{status === "error" ? "Reconnect the live data signal" : `from ${snapshot.activeMembers.toLocaleString()} active members`}</small></div><div className="pool-bars">{allocations.map((allocation) => <div className={`pool-row pool-row-${allocation.tone}`} key={allocation.label}><span>{allocation.label} <b>{allocation.note}</b></span><i><i style={{ width: `${allocation.width}%` }} /></i><strong>{allocation.width}%</strong></div>)}</div></div>
+}
+
 function LandingPage() {
   const [snapshot, setSnapshot] = useState(emptySnapshot)
   const [snapshotStatus, setSnapshotStatus] = useState("loading")
@@ -336,7 +350,8 @@ function LandingPage() {
             <button onClick={() => window.location.assign("/help-center")} type="button">Help center</button>
              <button onClick={() => window.location.assign("/objectives-roles")} type="button">Objectives</button>
              <button onClick={() => window.location.assign("/subscription-scores")} type="button">Plans & scores</button>
-             <button onClick={() => window.location.assign("/subscriber-dashboard")} type="button">Member dashboard</button>
+              <button onClick={() => window.location.assign("/subscriber-dashboard")} type="button">Member dashboard</button>
+              <button onClick={() => window.location.assign("/member-content")} type="button">Member briefings</button>
              <button className="nav-cta" onClick={() => setDialog("signup")} type="button">Join the early list <ArrowUpRight size={15} /></button>
           </div>
           <button aria-label={mobileMenu ? "Close menu" : "Open menu"} className="icon-button menu-button" onClick={() => setMobileMenu(!mobileMenu)} type="button">
@@ -373,7 +388,7 @@ function LandingPage() {
         </section>
 
         <section className="ticker-band" aria-label="Live impact summary">
-          <div className="ticker-inner container"><span>{snapshotStatus === "error" ? "Live impact data unavailable" : `${snapshot.activeMembers.toLocaleString()} people are already in motion`}</span><i /> <strong>at least 10% of every plan goes to a cause</strong><i /> <span>next draw in {snapshot.nextDraw}</span><i /> <span>{snapshotStatus === "ready" ? "live model" : "connecting"}</span></div>
+          <div className="ticker-inner container"><span>{snapshotStatus === "error" ? "Live impact data unavailable" : `${snapshot.activeMembers.toLocaleString()} people are already in motion`}</span><i /> <LivePoolBadge snapshot={snapshot} status={snapshotStatus} /><i /> <strong>at least 10% of every plan goes to a cause</strong><i /> <span>next draw in {snapshot.nextDraw}</span><i /> <span>{snapshotStatus === "ready" ? "live model" : "connecting"}</span></div>
         </section>
 
         <section className="section container" id="draw">
@@ -387,7 +402,7 @@ function LandingPage() {
 
         <section className="dark-break container">
           <div className="pool-copy"><p className="eyebrow eyebrow-light"><span className="eyebrow-line" /> The reward engine</p><h2>The best part is not the jackpot.</h2><p>It is knowing the full pool, the split, and the rollover before you play. Your chance is visible. So is your impact.</p><button className="button button-light" onClick={() => setDialog("draw")} type="button">See the pool logic <ArrowUpRight size={16} /></button></div>
-          <div className="pool-visual"><div className="pool-total"><span>Next pool / forecast</span><strong>INR {(Number(snapshot.prizePoolMinor || 0) / 100).toLocaleString("en-IN")}</strong><small>from a live community of {snapshot.activeMembers.toLocaleString()}</small></div><div className="pool-bars"><div className="pool-row"><span>5-number match <b>jackpot</b></span><i><i style={{ width: "40%" }} /></i><strong>40%</strong></div><div className="pool-row"><span>4-number match</span><i><i style={{ width: "35%" }} /></i><strong>35%</strong></div><div className="pool-row"><span>3-number match</span><i><i style={{ width: "25%" }} /></i><strong>25%</strong></div></div></div>
+          <LivePoolVisual snapshot={snapshot} status={snapshotStatus} />
         </section>
 
         <section className="section container" id="causes">
@@ -427,6 +442,7 @@ function App() {
   if (path === "/winner-verification") return <WinnerVerificationPage />
   if (path === "/admin-dashboard") return <AdminDashboardPage />
   if (path === "/admin-content") return <AdminContentPage />
+  if (path === "/member-content") return <MemberContentPage />
   return <LandingPage />
 }
 

@@ -29,7 +29,7 @@ const razorpay = razorpayKeyId && razorpayKeySecret
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")
 const frontendOrigin = (process.env.FRONTEND_ORIGIN || "").replace(/\/$/, "")
 const geminiApiKey = process.env.GEMINI_API_KEY || ""
-const geminiModel = process.env.GEMINI_MODEL || "gemini-2.0-flash"
+const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash"
 
 const plans = new Map([
   ["monthly", { amount: 1200, interval: "month", label: "Digital Heroes Monthly", note: "Stay flexible", features: ["Cancel any time", "Monthly draw entry", "10% minimum to charity"], color: "lime" }],
@@ -158,6 +158,7 @@ db.exec(`
     tags_json TEXT NOT NULL DEFAULT '[]',
     popular INTEGER NOT NULL DEFAULT 0,
     active INTEGER NOT NULL DEFAULT 1,
+    audience TEXT NOT NULL DEFAULT 'public' CHECK (audience IN ('public', 'members')),
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -167,6 +168,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS winner_events_winner_idx ON winner_workflow_events(winner_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS scores_member_date_idx ON scores(member_id, date DESC);
 `)
+
+try { db.exec("ALTER TABLE help_articles ADD COLUMN audience TEXT NOT NULL DEFAULT 'public' CHECK (audience IN ('public', 'members'))") } catch (error) {
+  if (!String(error.message).includes("duplicate column")) throw error
+}
+db.exec("CREATE INDEX IF NOT EXISTS help_articles_audience_idx ON help_articles(audience, active, updated_at DESC)")
 
 const now = () => new Date().toISOString()
 const id = (prefix) => `${prefix}_${randomBytes(12).toString("hex")}`
@@ -672,7 +678,7 @@ function publicDrawResponse(draw) {
 }
 
 function helpArticleResponse(article) {
-  return { id: article.id, slug: article.slug, category: article.category, title: article.title, excerpt: article.excerpt, body: article.body, tags: parseJson(article.tags_json, []), popular: Boolean(article.popular) }
+  return { id: article.id, slug: article.slug, category: article.category, title: article.title, excerpt: article.excerpt, body: article.body, tags: parseJson(article.tags_json, []), popular: Boolean(article.popular), audience: article.audience || "public" }
 }
 
 function adminArticleResponse(article) {
@@ -689,15 +695,16 @@ function contentInput(body, existing = {}) {
     excerpt: String(body?.excerpt ?? existing.excerpt ?? "").trim().slice(0, 300),
     body: String(body?.body ?? existing.body ?? "").trim().slice(0, 10000),
     tags: tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean).slice(0, 12),
+    audience: body?.audience === "members" ? "members" : String(existing.audience || "public") === "members" ? "members" : "public",
   }
 }
 
-function findHelpArticles(query = "", category = "") {
-  const clauses = ["active = 1"]
-  const params = []
+function findHelpArticles(query = "", category = "", audience = "public") {
+  const clauses = ["active = 1", "audience = ?"]
+  const params = [audience]
   if (category) { clauses.push("category = ?"); params.push(category) }
   if (query) { clauses.push("(title LIKE ? OR excerpt LIKE ? OR body LIKE ? OR tags_json LIKE ?)"); const term = `%${query}%`; params.push(term, term, term, term) }
-  return db.prepare(`SELECT id, slug, category, title, excerpt, body, tags_json, popular FROM help_articles WHERE ${clauses.join(" AND ")} ORDER BY popular DESC, sort_order ASC, title ASC`).all(...params).map(helpArticleResponse)
+  return db.prepare(`SELECT id, slug, category, title, excerpt, body, tags_json, popular, audience FROM help_articles WHERE ${clauses.join(" AND ")} ORDER BY popular DESC, sort_order ASC, title ASC`).all(...params).map(helpArticleResponse)
 }
 
 function fallbackSupportReply(message, articles) {
@@ -722,6 +729,10 @@ async function geminiSupportReply(message, history, articles) {
   } catch {
     return { ...fallback(), degraded: true }
   }
+}
+
+function geminiStatus() {
+  return { configured: Boolean(geminiApiKey), model: geminiModel, fallback: "knowledge-base" }
 }
 
 function signMockWebhook(payload) {
@@ -781,7 +792,7 @@ app.use((req, res, next) => {
   next()
 })
 
-app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", mongo: mongoStatus() }))
+app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", gemini: geminiStatus(), mongo: mongoStatus() }))
 
 app.get("/api/impact", (_req, res) => res.set("Cache-Control", "no-store").json(publicSnapshot()))
 
@@ -816,18 +827,28 @@ app.get("/api/help/articles", (req, res) => {
   const query = typeof req.query.query === "string" ? req.query.query.trim().slice(0, 100) : ""
   const category = typeof req.query.category === "string" ? req.query.category.trim().slice(0, 80) : ""
   const articles = findHelpArticles(query, category)
-  const categories = db.prepare("SELECT DISTINCT category FROM help_articles WHERE active = 1 ORDER BY sort_order ASC, category ASC").all().map((item) => item.category)
+  const categories = db.prepare("SELECT DISTINCT category FROM help_articles WHERE active = 1 AND audience = 'public' ORDER BY sort_order ASC, category ASC").all().map((item) => item.category)
   return res.set("Cache-Control", "no-store").json({ articles, categories, query, category })
 })
 
+app.get("/api/member/content", requireRole("subscriber", "admin"), (_req, res) => {
+  const articles = findHelpArticles("", "", "members")
+  return res.set("Cache-Control", "no-store").json({ articles })
+})
+
 app.get("/api/help/articles/:slug", (req, res) => {
-  const article = db.prepare("SELECT id, slug, category, title, excerpt, body, tags_json, popular FROM help_articles WHERE slug = ? AND active = 1").get(req.params.slug)
+  const article = db.prepare("SELECT id, slug, category, title, excerpt, body, tags_json, popular FROM help_articles WHERE slug = ? AND active = 1 AND audience = 'public'").get(req.params.slug)
   if (!article) return res.status(404).json({ message: "That help article could not be found." })
   return res.set("Cache-Control", "no-store").json({ article: helpArticleResponse(article) })
 })
 
+app.get("/api/help/status", (_req, res) => {
+  const articleCount = db.prepare("SELECT COUNT(*) AS count FROM help_articles WHERE active = 1 AND audience = 'public'").get().count
+  return res.set("Cache-Control", "no-store").json({ gemini: geminiStatus(), publicArticleCount: Number(articleCount) })
+})
+
 app.get("/api/admin/content", requireRole("admin"), (_req, res) => {
-  const articles = db.prepare("SELECT id, slug, category, title, excerpt, body, tags_json, popular, active, created_at, updated_at FROM help_articles ORDER BY updated_at DESC, sort_order ASC").all().map(adminArticleResponse)
+  const articles = db.prepare("SELECT id, slug, category, title, excerpt, body, tags_json, popular, active, audience, created_at, updated_at FROM help_articles ORDER BY updated_at DESC, sort_order ASC").all().map(adminArticleResponse)
   return res.json({ articles })
 })
 
@@ -837,7 +858,7 @@ app.post("/api/admin/content", requireRole("admin"), (req, res) => {
   const timestamp = now()
   try {
     const articleId = id("article")
-    db.prepare("INSERT INTO help_articles (id, slug, category, title, excerpt, body, tags_json, popular, active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)").run(articleId, input.slug, input.category, input.title, input.excerpt, input.body, JSON.stringify(input.tags), req.body?.active === false ? 0 : 1, timestamp, timestamp)
+    db.prepare("INSERT INTO help_articles (id, slug, category, title, excerpt, body, tags_json, popular, active, audience, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?, ?)").run(articleId, input.slug, input.category, input.title, input.excerpt, input.body, JSON.stringify(input.tags), req.body?.active === false ? 0 : 1, input.audience, timestamp, timestamp)
     return res.status(201).json({ article: adminArticleResponse(db.prepare("SELECT * FROM help_articles WHERE id = ?").get(articleId)) })
   } catch (error) {
     if (String(error.message).includes("UNIQUE")) return res.status(409).json({ message: "That content slug already exists." })
@@ -851,7 +872,7 @@ app.patch("/api/admin/content/:id", requireRole("admin"), (req, res) => {
   const input = contentInput(req.body, existing)
   if (!input.slug || !input.category || !input.title || !input.excerpt || !input.body) return res.status(422).json({ message: "Slug, category, title, excerpt, and body are required." })
   try {
-    db.prepare("UPDATE help_articles SET slug = ?, category = ?, title = ?, excerpt = ?, body = ?, tags_json = ?, active = ?, updated_at = ? WHERE id = ?").run(input.slug, input.category, input.title, input.excerpt, input.body, JSON.stringify(input.tags), req.body?.active === false ? 0 : 1, now(), req.params.id)
+    db.prepare("UPDATE help_articles SET slug = ?, category = ?, title = ?, excerpt = ?, body = ?, tags_json = ?, active = ?, audience = ?, updated_at = ? WHERE id = ?").run(input.slug, input.category, input.title, input.excerpt, input.body, JSON.stringify(input.tags), req.body?.active === false ? 0 : 1, input.audience, now(), req.params.id)
     return res.json({ article: adminArticleResponse(db.prepare("SELECT * FROM help_articles WHERE id = ?").get(req.params.id)) })
   } catch (error) {
     if (String(error.message).includes("UNIQUE")) return res.status(409).json({ message: "That content slug already exists." })

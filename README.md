@@ -84,6 +84,8 @@ Set these server-side environment variables in the deployment environment:
 - `STRIPE_MOCK_MODE`: set to `true` only for local testing; it is disabled automatically in production
 - `DEMO_SUBSCRIBER_EMAIL` and `DEMO_SUBSCRIBER_PASSWORD`: optional local bootstrap credentials
 - `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD`: optional local bootstrap credentials
+- `DEMO_ADMIN_ACCOUNTS`: optional JSON array of assigned administrator credentials; administrator access never accepts social login
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, and `GITHUB_CLIENT_SECRET`: backend-only OAuth credentials for subscriber/member sign-in
 - `GEMINI_API_KEY`: server-side Gemini API key for AI support; never expose it to the browser
 - `GEMINI_MODEL`: optional Gemini model name, defaulting to `gemini-2.5-flash`
 - `MONGODB_URI`: server-only MongoDB connection string for the native application snapshot and winner workflow mirror

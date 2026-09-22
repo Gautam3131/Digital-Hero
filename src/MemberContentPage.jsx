@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { OrbitControls, Sparkles as SparkleField } from "@react-three/drei"
-import { ArrowLeft, ArrowUpRight, BookOpen, LogOut, Radio, RefreshCcw, ShieldCheck } from "lucide-react"
+import { ArrowUpRight, BookOpen, LogOut, Radio, RefreshCcw, ShieldCheck } from "lucide-react"
 import { apiFetch } from "./apiBase"
 import "./member-content-page.css"
+import AuthPanel from "./AuthPanel"
 
 async function api(path, options = {}) {
   const response = await apiFetch(path, { ...options, headers: { "Content-Type": "application/json", ...options.headers } })
@@ -19,13 +20,7 @@ function MemberOrbit({ count }) {
 }
 
 function LoginPanel({ onLogin }) {
-  const [message, setMessage] = useState("")
-  async function submit(event) {
-    event.preventDefault(); setMessage("")
-    const form = new FormData(event.currentTarget)
-    try { const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: form.get("email"), password: form.get("password") }) }); onLogin(data.member) } catch (error) { setMessage(error.message) }
-  }
-  return <main className="member-content-login"><div className="member-content-login-card"><div className="content-brand"><span /> digital <strong>heroes</strong></div><p className="eyebrow"><span className="eyebrow-line" /> Registered member layer / 008</p><h1>The briefings<br /><em>behind the signal.</em></h1><p>Sign in to read updates reserved for the people already moving the platform forward.</p><form onSubmit={submit}><label>Email<input autoComplete="email" name="email" required type="email" placeholder="member@example.com" /></label><label>Password<input autoComplete="current-password" name="password" required type="password" placeholder="Your password" /></label>{message ? <p className="member-content-error" role="alert">{message}</p> : null}<button className="button button-primary full-width" type="submit">Open member briefings <ArrowUpRight size={16} /></button></form><button className="text-button" onClick={() => window.location.assign("/")} type="button"><ArrowLeft size={15} /> Back to public signal</button></div></main>
+  return <AuthPanel backHref="/" description="Sign in to read updates reserved for the people already moving the platform forward." eyebrow="Registered member layer / 008" onSubmit={async ({ email, password }) => { const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); await onLogin(data.member) }} redirectPath="/member-content" submitLabel="Open member briefings" title="The briefings behind the signal" />
 }
 
 export default function MemberContentPage() {

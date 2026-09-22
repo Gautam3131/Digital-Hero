@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { OrbitControls, Sparkles as SparkleField } from "@react-three/drei"
-import { ArrowLeft, ArrowUpRight, CalendarClock, Check, ExternalLink, FileCheck2, HeartHandshake, LogOut, RefreshCcw, ShieldCheck, Sparkles, Target, Trophy, WalletCards, X } from "lucide-react"
+import { ArrowUpRight, CalendarClock, Check, ExternalLink, FileCheck2, HeartHandshake, LogOut, RefreshCcw, ShieldCheck, Sparkles, Target, Trophy, WalletCards, X } from "lucide-react"
 import "./subscriber-dashboard-page.css"
 import { apiFetch } from "./apiBase"
+import AuthPanel from "./AuthPanel"
 
 const emptyDashboard = { member: null, subscription: null, plan: null, perks: [], scores: [], drawEntries: [], rewards: [], rewardSummary: { totalMinor: 0, paidMinor: 0, outstandingMinor: 0, count: 0 }, impact: { currentCharity: null, totalMinor: 0, currentCharityMinor: 0, percentage: 10 }, nextDraw: { date: "", label: "—" } }
 
@@ -34,14 +35,7 @@ function DashboardScene({ dashboard }) {
 }
 
 function LoginPanel({ onLogin }) {
-  const [status, setStatus] = useState("idle")
-  const [message, setMessage] = useState("")
-  async function submit(event) {
-    event.preventDefault(); setStatus("loading"); setMessage("")
-    const form = new FormData(event.currentTarget)
-    try { const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: form.get("email"), password: form.get("password") }) }); onLogin(data.member) } catch (error) { setMessage(error.message); setStatus("error") }
-  }
-  return <main className="dashboard-login"><div className="dashboard-login-card"><div className="dashboard-brand"><span className="wordmark-dot" /> digital <strong>heroes</strong></div><p className="eyebrow"><span className="eyebrow-line" /> Registered subscriber / 005</p><h1>Welcome back.<br /><em>Keep moving.</em></h1><p>Sign in to see your scores, draw entries, rewards, and the good your membership is already moving.</p><form className="dashboard-login-form" onSubmit={submit}><label>Email<input autoComplete="email" name="email" placeholder="member@example.com" required type="email" /></label><label>Password<input autoComplete="current-password" name="password" placeholder="Your password" required type="password" /></label>{status === "error" ? <p className="dashboard-error" role="alert">{message}</p> : null}<button className="button button-primary full-width" disabled={status === "loading"} type="submit">{status === "loading" ? "Opening dashboard..." : "Open my dashboard"}<ArrowUpRight size={16} /></button></form><button className="text-button dashboard-back-link" onClick={() => window.location.assign("/")} type="button"><ArrowLeft size={15} /> Back to public signal</button></div></main>
+  return <AuthPanel backHref="/" description="Sign in to see your scores, draw entries, rewards, and the good your membership is already moving." onSubmit={async ({ email, password }) => { const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); await onLogin(data.member) }} redirectPath="/subscriber-dashboard" submitLabel="Open my dashboard" title="Welcome back" />
 }
 
 function Metric({ icon: Icon, label, value, detail, tone = "lime" }) {

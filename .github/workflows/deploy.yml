@@ -38,6 +38,11 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
           RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ vars.GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          DEMO_ADMIN_ACCOUNTS: ${{ secrets.DEMO_ADMIN_ACCOUNTS }}
         run: |
           missing=()
           [ -n "$VERCEL_TOKEN" ] || missing+=(VERCEL_TOKEN)
@@ -51,9 +56,15 @@ jobs:
           [ -n "$FRONTEND_PUBLIC_URL" ] || missing+=(FRONTEND_PUBLIC_URL)
           [ -n "$GEMINI_API_KEY" ] || missing+=(GEMINI_API_KEY)
           [ -n "$MONGODB_URI" ] || missing+=(MONGODB_URI)
-          [ -n "$RAZORPAY_KEY_ID" ] || missing+=(RAZORPAY_KEY_ID)
-          [ -n "$RAZORPAY_KEY_SECRET" ] || missing+=(RAZORPAY_KEY_SECRET)
-          if [ "${#missing[@]}" -gt 0 ]; then
+           [ -n "$RAZORPAY_KEY_ID" ] || missing+=(RAZORPAY_KEY_ID)
+           [ -n "$RAZORPAY_KEY_SECRET" ] || missing+=(RAZORPAY_KEY_SECRET)
+           [ -n "$DEMO_ADMIN_ACCOUNTS" ] || missing+=(DEMO_ADMIN_ACCOUNTS)
+           if [ -n "$GOOGLE_CLIENT_ID" ] && [ -z "$GOOGLE_CLIENT_SECRET" ]; then missing+=(GOOGLE_CLIENT_SECRET); fi
+           if [ -n "$GOOGLE_CLIENT_SECRET" ] && [ -z "$GOOGLE_CLIENT_ID" ]; then missing+=(GOOGLE_CLIENT_ID); fi
+           if [ -n "$GITHUB_CLIENT_ID" ] && [ -z "$GITHUB_CLIENT_SECRET" ]; then missing+=(GITHUB_CLIENT_SECRET); fi
+           if [ -n "$GITHUB_CLIENT_SECRET" ] && [ -z "$GITHUB_CLIENT_ID" ]; then missing+=(GITHUB_CLIENT_ID); fi
+           if [ -n "$DEMO_ADMIN_ACCOUNTS" ] && ! node -e 'const accounts = JSON.parse(process.env.DEMO_ADMIN_ACCOUNTS); if (!Array.isArray(accounts) || !accounts.length || accounts.some((account) => !account?.email || !account?.password)) process.exit(1)' 2>/dev/null; then missing+=(DEMO_ADMIN_ACCOUNTS_INVALID); fi
+           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Missing production configuration: %s\n' "${missing[*]}"
             exit 1
           fi
@@ -91,9 +102,21 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
           RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ vars.GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          DEMO_ADMIN_ACCOUNTS: ${{ secrets.DEMO_ADMIN_ACCOUNTS }}
           PUBLIC_BASE_URL: ${{ vars.BACKEND_PUBLIC_URL }}
           FRONTEND_ORIGIN: ${{ vars.FRONTEND_PUBLIC_URL }}
-        run: railway variable set GEMINI_API_KEY=$GEMINI_API_KEY MONGODB_URI=$MONGODB_URI RAZORPAY_KEY_ID=$RAZORPAY_KEY_ID RAZORPAY_KEY_SECRET=$RAZORPAY_KEY_SECRET PUBLIC_BASE_URL=$PUBLIC_BASE_URL FRONTEND_ORIGIN=$FRONTEND_ORIGIN --service $RAILWAY_SERVICE_ID --environment $RAILWAY_ENVIRONMENT_ID --skip-deploys --json
+        run: |
+          oauth_args=()
+          [ -n "$GOOGLE_CLIENT_ID" ] && oauth_args+=("GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID")
+          [ -n "$GOOGLE_CLIENT_SECRET" ] && oauth_args+=("GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET")
+          [ -n "$GITHUB_CLIENT_ID" ] && oauth_args+=("GITHUB_CLIENT_ID=$GITHUB_CLIENT_ID")
+          [ -n "$GITHUB_CLIENT_SECRET" ] && oauth_args+=("GITHUB_CLIENT_SECRET=$GITHUB_CLIENT_SECRET")
+          [ -n "$DEMO_ADMIN_ACCOUNTS" ] && oauth_args+=("DEMO_ADMIN_ACCOUNTS=$DEMO_ADMIN_ACCOUNTS")
+          railway variable set "GEMINI_API_KEY=$GEMINI_API_KEY" "MONGODB_URI=$MONGODB_URI" "RAZORPAY_KEY_ID=$RAZORPAY_KEY_ID" "RAZORPAY_KEY_SECRET=$RAZORPAY_KEY_SECRET" "PUBLIC_BASE_URL=$PUBLIC_BASE_URL" "FRONTEND_ORIGIN=$FRONTEND_ORIGIN" "${oauth_args[@]}" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID" --skip-deploys --json
       - name: Deploy backend to Railway
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

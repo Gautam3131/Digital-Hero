@@ -29,6 +29,9 @@ Add these repository or `production` Environment Secrets:
 | `MONGODB_URI` | Server-only MongoDB connection string injected into the backend deployment job |
 | `RAZORPAY_KEY_ID` | Server-only Razorpay public key used to initialize the backend client |
 | `RAZORPAY_KEY_SECRET` | Server-only Razorpay secret used to initialize the backend client |
+| `GOOGLE_CLIENT_SECRET` | Server-only Google OAuth client secret |
+| `GITHUB_CLIENT_SECRET` | Server-only GitHub OAuth client secret |
+| `DEMO_ADMIN_ACCOUNTS` | Optional JSON array of non-production/testing administrator credentials |
 
 No API key should be committed to this repository or exposed through a `VITE_*` variable. The Railway service must hold `MONGODB_URI`, `GEMINI_API_KEY`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` in its encrypted runtime environment.
 
@@ -47,6 +50,10 @@ STRIPE_WEBHOOK_SECRET=whsec_replace_me
 RAZORPAY_KEY_ID=rzp_live_replace_me
 RAZORPAY_KEY_SECRET=replace_me
 STRIPE_MOCK_MODE=false
+GOOGLE_CLIENT_ID=replace_me.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=replace_me
+GITHUB_CLIENT_ID=replace_me
+GITHUB_CLIENT_SECRET=replace_me
 GEMINI_API_KEY=replace_me
 GEMINI_MODEL=gemini-2.5-flash
 MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/replace_me/endpoint/data/v1
@@ -57,7 +64,7 @@ MONGODB_DATABASE=digital_heroes
 MONGODB_WINNER_COLLECTION=winner_workflows
 ```
 
-`DEMO_SUBSCRIBER_EMAIL`, `DEMO_SUBSCRIBER_PASSWORD`, `DEMO_ADMIN_EMAIL`, and `DEMO_ADMIN_PASSWORD` are optional development bootstrap values. Do not use demo credentials as a production identity system.
+`DEMO_SUBSCRIBER_EMAIL`, `DEMO_SUBSCRIBER_PASSWORD`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, and `DEMO_ADMIN_ACCOUNTS` are optional development bootstrap values. Do not use demo credentials as a production identity system. Social sign-in is subscriber-only; administrator accounts cannot be created or authenticated through Google or GitHub.
 
 For Railway, attach a persistent volume to the service at `/data`. The Docker image keeps SQLite at `/data/digital-heroes.sqlite`; the runtime remains able to open the volume after Railway mounts it.
 
@@ -79,6 +86,8 @@ These variables are intentionally public. They must contain URLs only. Stripe se
 3. Add the Railway project, environment, and service IDs as GitHub `production` Environment Variables.
 4. Add the Vercel token and Railway project token as GitHub Environment Secrets.
 5. Set `PUBLIC_BASE_URL` to the backend HTTPS origin and `FRONTEND_ORIGIN` to the Vercel HTTPS origin.
-6. Set `BACKEND_PUBLIC_URL` and `FRONTEND_PUBLIC_URL` in GitHub, then run `Deploy` manually once to verify the wiring.
+6. Create Google and GitHub OAuth applications with callback URLs `<PUBLIC_BASE_URL>/api/auth/google/callback` and `<PUBLIC_BASE_URL>/api/auth/github/callback`.
+7. Add `GOOGLE_CLIENT_ID` and `GITHUB_CLIENT_ID` as production Variables and `GOOGLE_CLIENT_SECRET` and `GITHUB_CLIENT_SECRET` as production Secrets, then run `Deploy` manually once to verify the wiring.
+8. Set `BACKEND_PUBLIC_URL` and `FRONTEND_PUBLIC_URL` in GitHub, then run `Deploy` manually once to verify the wiring.
 
 The backend health endpoint is `GET /health`. A successful deployment returns `{ "ok": true, "service": "digital-heroes-api" }` and reports the selected payment provider under `payments.provider`. Razorpay is preferred when both Razorpay credentials are present; Stripe remains the fallback provider.

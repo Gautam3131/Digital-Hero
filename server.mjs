@@ -14,7 +14,9 @@ const databasePath = process.env.DH_DB_PATH || join(dataDir, "digital-heroes.sql
 mkdirSync(join(databasePath, ".."), { recursive: true })
 
 const app = express()
-const port = process.env.PORT || "8787"
+const configuredPort = Number.parseInt(process.env.PORT || "8787", 10)
+if (!Number.isInteger(configuredPort) || configuredPort < 1 || configuredPort > 65535) throw new Error("PORT must be an integer between 1 and 65535.")
+const port = configuredPort
 const isProduction = process.env.NODE_ENV === "production"
 const sessionTtlSeconds = 60 * 60 * 24 * 30
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || ""
@@ -31,12 +33,44 @@ const publicBaseUrl = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")
 const frontendOrigin = (process.env.FRONTEND_ORIGIN || "").replace(/\/$/, "")
 const geminiApiKey = process.env.GEMINI_API_KEY || ""
 const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash"
+const oauthCallbackBase = `${publicBaseUrl || `http://localhost:${port}`}/api/auth`
+const oauthRedirectOrigin = frontendOrigin || "http://localhost:5173"
+const oauthProviders = {
+  google: { clientId: process.env.GOOGLE_CLIENT_ID || "", clientSecret: process.env.GOOGLE_CLIENT_SECRET || "" },
+  github: { clientId: process.env.GITHUB_CLIENT_ID || "", clientSecret: process.env.GITHUB_CLIENT_SECRET || "" },
+}
+
+const localDemoAdminAccounts = [
+  { email: "admin-01@digitalheroes.local", password: "DH-Admin-01!Test", memberId: "admin_demo_01", name: "Demo Admin 01" },
+  { email: "admin-02@digitalheroes.local", password: "DH-Admin-02!Test", memberId: "admin_demo_02", name: "Demo Admin 02" },
+  { email: "admin-03@digitalheroes.local", password: "DH-Admin-03!Test", memberId: "admin_demo_03", name: "Demo Admin 03" },
+  { email: "admin-04@digitalheroes.local", password: "DH-Admin-04!Test", memberId: "admin_demo_04", name: "Demo Admin 04" },
+  { email: "admin-05@digitalheroes.local", password: "DH-Admin-05!Test", memberId: "admin_demo_05", name: "Demo Admin 05" },
+]
+
+function parseAdminAccounts() {
+  const configured = []
+  if (process.env.DEMO_ADMIN_EMAIL && process.env.DEMO_ADMIN_PASSWORD) configured.push({ email: process.env.DEMO_ADMIN_EMAIL, password: process.env.DEMO_ADMIN_PASSWORD, memberId: "admin", name: "Configured Admin" })
+  try {
+    const parsed = JSON.parse(process.env.DEMO_ADMIN_ACCOUNTS || "[]")
+    if (Array.isArray(parsed)) configured.push(...parsed)
+  } catch {
+    console.warn("DEMO_ADMIN_ACCOUNTS must be a JSON array; ignoring the invalid value.")
+  }
+  if (!isProduction) configured.push({ email: "admin@digitalheroes.local", password: "demo-admin", memberId: "admin", name: "Demo Admin" }, ...localDemoAdminAccounts)
+  return [...new Map(configured.filter((account) => account?.email && account?.password).map((account) => {
+    const email = String(account.email).trim().toLowerCase()
+    return [email, { email, password: String(account.password), memberId: String(account.memberId || `admin_${createHash("sha256").update(email).digest("hex").slice(0, 16)}`), name: String(account.name || "Administrator").trim() }]
+  })).values()]
+}
+const adminAccounts = parseAdminAccounts()
+if (isProduction && !adminAccounts.length) console.warn("No production administrator accounts are configured. Set DEMO_ADMIN_ACCOUNTS or DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD before deploying.")
 
 const plans = new Map([
   ["monthly", { amount: 1200, interval: "month", label: "Digital Heroes Monthly", note: "Stay flexible", features: ["Cancel any time", "Monthly draw entry", "10% minimum to charity"], color: "lime" }],
   ["yearly", { amount: 12000, interval: "year", label: "Digital Heroes Yearly", note: "Two months on us", features: ["Best value plan", "12 monthly entries", "10% minimum to charity"], color: "coral" }],
 ])
-const db = new DatabaseSync(databasePath)
+const db = new DatabaseSync(databasePath, { timeout: 15000 })
 
 db.exec(`
   PRAGMA foreign_keys = ON;
@@ -83,6 +117,15 @@ db.exec(`
     token_hash TEXT PRIMARY KEY,
     member_id TEXT NOT NULL REFERENCES members(id),
     expires_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS auth_identities (
+    provider TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    email TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (provider, subject)
   );
   CREATE TABLE IF NOT EXISTS charities (
     id TEXT PRIMARY KEY,
@@ -209,6 +252,7 @@ function seedDatabase() {
   const timestamp = now()
   insertMember.run("demo", "member@digitalheroes.local", "Demo Member", "subscriber", "monthly", "The Good Grief Trust", timestamp, timestamp)
   insertMember.run("admin", "admin@digitalheroes.local", "Demo Admin", "admin", null, null, timestamp, timestamp)
+  for (const account of adminAccounts) insertMember.run(account.memberId, account.email, account.name, "admin", null, null, timestamp, timestamp)
   insertCharity.run("charity_good_grief", "The Good Grief Trust", "Mental health", "A quiet safety net for families rebuilding after loss.", "Support for people navigating grief and bereavement.", timestamp, timestamp)
   insertCharity.run("charity_clean_air", "Clean Air Fund", "Planet", "Backing cleaner air for children growing up in cities.", "Funding clean-air solutions where children need them most.", timestamp, timestamp)
   insertCharity.run("charity_street_child", "Street Child United", "Opportunity", "Putting sport, safety, and school within every child's reach.", "Using sport to create safe, ambitious pathways for vulnerable children.", timestamp, timestamp)
@@ -258,15 +302,18 @@ app.use((req, res, next) => {
 })
 
 function setSessionCookie(res, token) {
-  const secure = isProduction ? "; Secure" : ""
-  const sameSite = isProduction && frontendOrigin ? "None" : "Lax"
-  res.set("Set-Cookie", `dh_session=${token}; HttpOnly; Path=/; SameSite=${sameSite}; Max-Age=${sessionTtlSeconds}${secure}`)
+  setCookie(res, "dh_session", token, { maxAge: sessionTtlSeconds, httpOnly: true })
 }
 
 function clearSessionCookie(res) {
-  const secure = isProduction ? "; Secure" : ""
-  const sameSite = isProduction && frontendOrigin ? "None" : "Lax"
-  res.set("Set-Cookie", `dh_session=; HttpOnly; Path=/; SameSite=${sameSite}; Max-Age=0${secure}`)
+  setCookie(res, "dh_session", "", { maxAge: 0, httpOnly: true })
+}
+
+function setCookie(res, name, value, { maxAge = 600, httpOnly = true, sameSite = isProduction && frontendOrigin ? "None" : "Lax" } = {}) {
+  const parts = [`${name}=${encodeURIComponent(value)}`, "Path=/", `SameSite=${sameSite}`, `Max-Age=${maxAge}`]
+  if (httpOnly) parts.push("HttpOnly")
+  if (isProduction) parts.push("Secure")
+  res.append("Set-Cookie", parts.join("; "))
 }
 
 function requestCookies(req) {
@@ -274,6 +321,86 @@ function requestCookies(req) {
     const [key, ...value] = part.trim().split("=")
     return [key, decodeURIComponent(value.join("="))]
   }))
+}
+
+function allowedOAuthRedirect(value) {
+  const allowed = new Set(["/subscriber-dashboard", "/member-content", "/subscription-scores"])
+  return allowed.has(value) ? value : "/subscriber-dashboard"
+}
+
+function oauthRedirect(res, path, params = {}) {
+  const target = new URL(path, oauthRedirectOrigin)
+  for (const [key, value] of Object.entries(params)) target.searchParams.set(key, value)
+  return res.redirect(target.toString())
+}
+
+function providerIsConfigured(provider) {
+  return Boolean(oauthProviders[provider]?.clientId && oauthProviders[provider]?.clientSecret)
+}
+
+async function readOAuthJson(url, options = {}) {
+  const response = await fetch(url, options)
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error_description || body.message || `The ${url} request failed.`)
+  return body
+}
+
+function startOAuth(res, provider, redirect) {
+  if (!providerIsConfigured(provider)) return res.status(503).json({ message: `${provider} sign in is not configured on the server.` })
+  const state = randomBytes(24).toString("base64url")
+  setCookie(res, `dh_oauth_state_${provider}`, state)
+  setCookie(res, `dh_oauth_redirect_${provider}`, allowedOAuthRedirect(redirect), { httpOnly: true })
+  const callback = `${oauthCallbackBase}/${provider}/callback`
+  const params = new URLSearchParams({ client_id: oauthProviders[provider].clientId, redirect_uri: callback, response_type: "code", state })
+  if (provider === "google") {
+    params.set("scope", "openid email profile")
+    return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`)
+  }
+  params.set("scope", "read:user user:email")
+  return res.redirect(`https://github.com/login/oauth/authorize?${params}`)
+}
+
+async function oauthProfile(provider, code, callback) {
+  if (provider === "google") {
+    const token = await readOAuthJson("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code, client_id: oauthProviders.google.clientId, client_secret: oauthProviders.google.clientSecret, redirect_uri: callback, grant_type: "authorization_code" }),
+    })
+    const profile = await readOAuthJson("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${token.access_token}` } })
+    if (!profile.sub || !profile.email || profile.email_verified === false) throw new Error("Google did not return a verified email address.")
+    return { subject: String(profile.sub), email: String(profile.email).toLowerCase(), name: profile.name || profile.email.split("@")[0] }
+  }
+
+  const token = await readOAuthJson("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: oauthProviders.github.clientId, client_secret: oauthProviders.github.clientSecret, code, redirect_uri: callback }),
+  })
+  const headers = { Accept: "application/vnd.github+json", Authorization: `Bearer ${token.access_token}`, "User-Agent": "digital-heroes-auth" }
+  const profile = await readOAuthJson("https://api.github.com/user", { headers })
+  const emails = profile.email ? [] : await readOAuthJson("https://api.github.com/user/emails", { headers })
+  const verifiedEmail = profile.email || emails.find((item) => item.primary && item.verified)?.email || emails.find((item) => item.verified)?.email
+  if (!profile.id || !verifiedEmail) throw new Error("GitHub did not return a verified email address.")
+  return { subject: String(profile.id), email: String(verifiedEmail).toLowerCase(), name: profile.name || profile.login || verifiedEmail.split("@")[0] }
+}
+
+function upsertOAuthMember(provider, profile) {
+  const existingIdentity = db.prepare("SELECT member_id AS memberId FROM auth_identities WHERE provider = ? AND subject = ?").get(provider, profile.subject)
+  let member = existingIdentity ? db.prepare("SELECT * FROM members WHERE id = ?").get(existingIdentity.memberId) : null
+  if (!member) member = db.prepare("SELECT * FROM members WHERE email = ?").get(profile.email)
+  if (member?.role === "admin") throw Object.assign(new Error("Administrator accounts must use their assigned credentials."), { code: "admin_social_login_disabled" })
+  const memberId = member ? member.id : upsertMember(profile.name, profile.email, "subscriber")
+  const timestamp = now()
+  db.prepare("INSERT INTO auth_identities (provider, subject, member_id, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(provider, subject) DO UPDATE SET email = excluded.email, updated_at = excluded.updated_at").run(provider, profile.subject, memberId, profile.email, timestamp, timestamp)
+  db.prepare("UPDATE members SET name = ?, updated_at = ? WHERE id = ? AND role = 'subscriber'").run(profile.name.trim(), timestamp, memberId)
+  return memberId
+}
+
+function createSession(memberId, res) {
+  const token = randomBytes(32).toString("base64url")
+  db.prepare("INSERT INTO sessions (token_hash, member_id, expires_at) VALUES (?, ?, ?)").run(hashToken(token), memberId, Date.now() + sessionTtlSeconds * 1000)
+  setSessionCookie(res, token)
 }
 
 function memberFromRequest(req) {
@@ -826,7 +953,7 @@ app.use((req, res, next) => {
   next()
 })
 
-app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", gemini: geminiStatus(), mongo: mongoStatus(), payments: { provider: paymentProvider, razorpayConfigured: Boolean(razorpay), stripeConfigured: Boolean(stripeSecretKey || mockStripeMode) } }))
+app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", gemini: geminiStatus(), mongo: mongoStatus(), payments: { provider: paymentProvider, razorpayConfigured: Boolean(razorpay), stripeConfigured: Boolean(stripeSecretKey || mockStripeMode) }, auth: { adminConfigured: adminAccounts.length > 0, googleConfigured: providerIsConfigured("google"), githubConfigured: providerIsConfigured("github") } }))
 
 app.get("/api/impact", (_req, res) => res.set("Cache-Control", "no-store").json(publicSnapshot()))
 
@@ -935,17 +1062,41 @@ app.post("/api/help/chat", async (req, res) => {
   return res.json(answer)
 })
 
+app.get("/api/auth/providers", (_req, res) => res.json({ google: providerIsConfigured("google"), github: providerIsConfigured("github") }))
+
+app.get("/api/auth/google", (req, res) => startOAuth(res, "google", req.query.redirect))
+app.get("/api/auth/github", (req, res) => startOAuth(res, "github", req.query.redirect))
+
+for (const provider of ["google", "github"]) {
+  app.get(`/api/auth/${provider}/callback`, async (req, res) => {
+    const redirect = allowedOAuthRedirect(requestCookies(req)[`dh_oauth_redirect_${provider}`])
+    const stateCookie = requestCookies(req)[`dh_oauth_state_${provider}`]
+    setCookie(res, `dh_oauth_state_${provider}`, "", { maxAge: 0 })
+    setCookie(res, `dh_oauth_redirect_${provider}`, "", { maxAge: 0 })
+    if (!providerIsConfigured(provider)) return oauthRedirect(res, redirect, { auth: "error", reason: `${provider}_not_configured` })
+    if (!req.query.code || !stateCookie || !safeTextEqual(stateCookie, req.query.state)) return oauthRedirect(res, redirect, { auth: "error", reason: "oauth_state_invalid" })
+    try {
+      const callback = `${oauthCallbackBase}/${provider}/callback`
+      const profile = await oauthProfile(provider, String(req.query.code), callback)
+      const memberId = upsertOAuthMember(provider, profile)
+      createSession(memberId, res)
+      return oauthRedirect(res, redirect, { auth: "success" })
+    } catch (error) {
+      return oauthRedirect(res, redirect, { auth: "error", reason: error.code || "oauth_failed" })
+    }
+  })
+}
+
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body || {}
+  if (!adminAccounts.length && !process.env.DEMO_SUBSCRIBER_EMAIL && isProduction) return res.status(503).json({ message: "Administrator sign-in is not configured on the server." })
   const accounts = [
     { email: process.env.DEMO_SUBSCRIBER_EMAIL || (!isProduction ? "member@digitalheroes.local" : ""), password: process.env.DEMO_SUBSCRIBER_PASSWORD || (!isProduction ? "demo-subscriber" : ""), memberId: "demo" },
-    { email: process.env.DEMO_ADMIN_EMAIL || (!isProduction ? "admin@digitalheroes.local" : ""), password: process.env.DEMO_ADMIN_PASSWORD || (!isProduction ? "demo-admin" : ""), memberId: "admin" },
+    ...adminAccounts,
   ]
   const account = accounts.find((item) => item.email.toLowerCase() === String(email || "").toLowerCase())
   if (!account || !safeTextEqual(account.password, password)) return res.status(401).json({ message: "Email or password is incorrect." })
-  const token = randomBytes(32).toString("base64url")
-  db.prepare("INSERT INTO sessions (token_hash, member_id, expires_at) VALUES (?, ?, ?)").run(hashToken(token), account.memberId, Date.now() + sessionTtlSeconds * 1000)
-  setSessionCookie(res, token)
+  createSession(account.memberId, res)
   const member = db.prepare("SELECT id, email, name, role, plan, charity FROM members WHERE id = ?").get(account.memberId)
   return res.json({ member })
 })

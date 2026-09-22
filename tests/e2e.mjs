@@ -69,6 +69,13 @@ async function run() {
   assert.equal(result.body.ok, true)
   assert.equal(result.body.service, "digital-heroes-api")
   assert.equal(typeof result.body.payments.provider, "string")
+  assert.equal(typeof result.body.auth.googleConfigured, "boolean")
+  assert.equal(typeof result.body.auth.githubConfigured, "boolean")
+  assert.equal(typeof result.body.auth.adminConfigured, "boolean")
+  result = await request("/api/auth/providers")
+  assert.equal(result.response.status, 200)
+  assert.equal(typeof result.body.google, "boolean")
+  assert.equal(typeof result.body.github, "boolean")
 
   result = await request("/api/impact")
   assert.equal(result.response.status, 200)
@@ -190,6 +197,14 @@ async function run() {
   assert.equal(result.response.status, 200)
   result = await request("/api/scores")
   assert.equal(result.response.status, 401)
+
+  for (const index of [1, 2, 3, 4, 5]) {
+    result = await jsonRequest("/api/auth/login", "POST", { email: `admin-0${index}@digitalheroes.local`, password: `DH-Admin-0${index}!Test` })
+    assert.equal(result.response.status, 200)
+    assert.equal(result.body.member.id, `admin_demo_0${index}`)
+    assert.equal(result.body.member.role, "admin")
+    await jsonRequest("/api/auth/logout", "POST", {})
+  }
 
   const admin = await login("admin@digitalheroes.local", "demo-admin")
   assert.equal(admin.role, "admin")

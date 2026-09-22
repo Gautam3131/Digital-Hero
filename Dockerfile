@@ -18,4 +18,4 @@ USER node
 ENV DH_DB_PATH=/data/digital-heroes.sqlite
 EXPOSE 8787
 
-CMD ["node", "server.mjs"]
+CMD ["npm", "start"]

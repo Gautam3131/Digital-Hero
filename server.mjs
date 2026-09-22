@@ -14,7 +14,9 @@ const databasePath = process.env.DH_DB_PATH || join(dataDir, "digital-heroes.sql
 mkdirSync(join(databasePath, ".."), { recursive: true })
 
 const app = express()
-const port = process.env.PORT || "8787"
+const configuredPort = Number.parseInt(process.env.PORT || "8787", 10)
+if (!Number.isInteger(configuredPort) || configuredPort < 1 || configuredPort > 65535) throw new Error("PORT must be an integer between 1 and 65535.")
+const port = configuredPort
 const isProduction = process.env.NODE_ENV === "production"
 const sessionTtlSeconds = 60 * 60 * 24 * 30
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || ""
@@ -62,12 +64,13 @@ function parseAdminAccounts() {
   })).values()]
 }
 const adminAccounts = parseAdminAccounts()
+if (isProduction && !adminAccounts.length) console.warn("No production administrator accounts are configured. Set DEMO_ADMIN_ACCOUNTS or DEMO_ADMIN_EMAIL/DEMO_ADMIN_PASSWORD before deploying.")
 
 const plans = new Map([
   ["monthly", { amount: 1200, interval: "month", label: "Digital Heroes Monthly", note: "Stay flexible", features: ["Cancel any time", "Monthly draw entry", "10% minimum to charity"], color: "lime" }],
   ["yearly", { amount: 12000, interval: "year", label: "Digital Heroes Yearly", note: "Two months on us", features: ["Best value plan", "12 monthly entries", "10% minimum to charity"], color: "coral" }],
 ])
-const db = new DatabaseSync(databasePath)
+const db = new DatabaseSync(databasePath, { timeout: 15000 })
 
 db.exec(`
   PRAGMA foreign_keys = ON;
@@ -950,7 +953,7 @@ app.use((req, res, next) => {
   next()
 })
 
-app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", gemini: geminiStatus(), mongo: mongoStatus(), payments: { provider: paymentProvider, razorpayConfigured: Boolean(razorpay), stripeConfigured: Boolean(stripeSecretKey || mockStripeMode) }, auth: { googleConfigured: providerIsConfigured("google"), githubConfigured: providerIsConfigured("github") } }))
+app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", gemini: geminiStatus(), mongo: mongoStatus(), payments: { provider: paymentProvider, razorpayConfigured: Boolean(razorpay), stripeConfigured: Boolean(stripeSecretKey || mockStripeMode) }, auth: { adminConfigured: adminAccounts.length > 0, googleConfigured: providerIsConfigured("google"), githubConfigured: providerIsConfigured("github") } }))
 
 app.get("/api/impact", (_req, res) => res.set("Cache-Control", "no-store").json(publicSnapshot()))
 
@@ -1086,6 +1089,7 @@ for (const provider of ["google", "github"]) {
 
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body || {}
+  if (!adminAccounts.length && !process.env.DEMO_SUBSCRIBER_EMAIL && isProduction) return res.status(503).json({ message: "Administrator sign-in is not configured on the server." })
   const accounts = [
     { email: process.env.DEMO_SUBSCRIBER_EMAIL || (!isProduction ? "member@digitalheroes.local" : ""), password: process.env.DEMO_SUBSCRIBER_PASSWORD || (!isProduction ? "demo-subscriber" : ""), memberId: "demo" },
     ...adminAccounts,

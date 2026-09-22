@@ -46,7 +46,8 @@ The server exposes:
 - `GET /api/member/content` for authenticated registered-member briefings
 - `POST /api/help/chat` for the server-side Gemini support assistant or local knowledge-base fallback
 - `POST /api/subscribe` for early-list signup validation
-- `POST /api/checkout/session` for a live INR Stripe Checkout Session
+- `POST /api/checkout/session` for a live INR Razorpay order when configured, with Stripe Checkout as a fallback
+- `POST /api/checkout/razorpay/verify` for server-side Razorpay signature verification
 - `GET /api/checkout/session/status?session_id=...` for post-checkout status
 - `POST /api/stripe/webhook` for signed Stripe subscription updates
 - `GET/POST /mock-stripe/checkout/...` for local-only checkout completion and cancellation when `STRIPE_MOCK_MODE=true`

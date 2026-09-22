@@ -10,6 +10,7 @@ import PastDrawsPage from "./PastDrawsPage"
 import HelpCenterPage from "./HelpCenterPage"
 import SubscriberDashboardPage from "./SubscriberDashboardPage"
 import WinnerVerificationPage from "./WinnerVerificationPage"
+import OrbitDeliveryLandingPage from "./OrbitDeliveryLandingPage"
 import { apiFetch } from "./apiBase"
 import {
   ArrowDownRight,
@@ -443,7 +444,8 @@ function App() {
   if (path === "/admin-dashboard") return <AdminDashboardPage />
   if (path === "/admin-content") return <AdminContentPage />
   if (path === "/member-content") return <MemberContentPage />
-  return <LandingPage />
+  return <OrbitDeliveryLandingPage />
 }
 
 export default App
+

@@ -8,7 +8,7 @@ ENV GITHUB_SHA=$GIT_SHA
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY . .
 RUN npm run build && npm prune --omit=dev

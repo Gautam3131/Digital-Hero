@@ -3,7 +3,7 @@
 The repository contains two GitHub Actions workflows:
 
 - `.github/workflows/ci.yml` runs on pull requests and pushes to `main` or `develop`. It installs the locked dependency tree, checks Node modules, builds the React app, runs the SQLite-backed E2E suite, audits production dependencies, and stores the `dist/` artifact.
-- `.github/workflows/deploy.yml` runs after the reusable CI workflow passes on `main` or through manual dispatch. It publishes a backend image to GHCR, triggers the Render backend deploy hook, waits for `/health`, and deploys the Vite frontend to Vercel.
+- `.github/workflows/deploy.yml` runs after the reusable CI workflow passes on `main` or through manual dispatch. It links and deploys the backend to Railway, waits for `/health`, and deploys the Vite frontend to Vercel.
 
 ## GitHub Environment
 
@@ -13,6 +13,9 @@ Create a GitHub Environment named `production`. Add these non-secret Variables:
 | --- | --- | --- |
 | `BACKEND_PUBLIC_URL` | `https://api.example.com` | Frontend build, backend health check |
 | `FRONTEND_PUBLIC_URL` | `https://app.example.com` | Frontend build |
+| `RAILWAY_PROJECT_ID` | `project_replace_me` | Railway project selection |
+| `RAILWAY_ENVIRONMENT_ID` | `environment_replace_me` | Railway environment selection |
+| `RAILWAY_SERVICE_ID` | `service_replace_me` | Railway service selection |
 | `VERCEL_ORG_ID` | `team_replace_me` | Vercel project selection |
 | `VERCEL_PROJECT_ID` | `prj_replace_me` | Vercel project selection |
 
@@ -21,17 +24,17 @@ Add these repository or `production` Environment Secrets:
 | Secret | Purpose |
 | --- | --- |
 | `VERCEL_TOKEN` | Scoped Vercel deployment token |
-| `RENDER_DEPLOY_HOOK_URL` | Render deploy hook for the backend service |
+| `RAILWAY_TOKEN` | Railway project token for backend deployment |
 | `GEMINI_API_KEY` | Server-only Gemini API key injected into the backend deployment job |
 | `MONGODB_URI` | Server-only MongoDB connection string injected into the backend deployment job |
 | `RAZORPAY_KEY_ID` | Server-only Razorpay public key used to initialize the backend client |
 | `RAZORPAY_KEY_SECRET` | Server-only Razorpay secret used to initialize the backend client |
 
-The workflow uses the built-in `GITHUB_TOKEN` for GHCR package publishing. No API key should be committed to this repository or exposed through a `VITE_*` variable. The backend job maps `MONGODB_URI`, `GEMINI_API_KEY`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` from repository secrets into masked environment variables; the Render service must use the same names in its encrypted runtime environment.
+No API key should be committed to this repository or exposed through a `VITE_*` variable. The Railway service must hold `MONGODB_URI`, `GEMINI_API_KEY`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` in its encrypted runtime environment.
 
 ## Backend Runtime Variables
 
-Set these in the Render service, or in the equivalent backend provider's encrypted environment store. The values below are placeholders only; deployment operators inject the real values securely.
+Set these in the Railway service's encrypted environment store. The values below are placeholders only; deployment operators inject the real values securely.
 
 ```text
 NODE_ENV=production
@@ -45,7 +48,7 @@ RAZORPAY_KEY_ID=rzp_live_replace_me
 RAZORPAY_KEY_SECRET=replace_me
 STRIPE_MOCK_MODE=false
 GEMINI_API_KEY=replace_me
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-2.5-flash
 MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/replace_me/endpoint/data/v1
 MONGODB_DATA_API_KEY=replace_me
 MONGODB_URI=mongodb+srv://username:password@cluster.example.mongodb.net/digital_heroes
@@ -72,9 +75,10 @@ These variables are intentionally public. They must contain URLs only. Stripe se
 ## Provider Setup
 
 1. Create a Vercel project linked to this repository and copy its organization and project IDs into the GitHub `production` Environment Variables.
-2. Create a Render web service from `render.yaml`, attach the persistent `/data` disk, configure the backend runtime variables, and create a deploy hook.
-3. Add the Vercel token and Render deploy hook as GitHub Environment Secrets.
-4. Set `PUBLIC_BASE_URL` to the backend HTTPS origin and `FRONTEND_ORIGIN` to the Vercel HTTPS origin.
-5. Set `BACKEND_PUBLIC_URL` and `FRONTEND_PUBLIC_URL` in GitHub, then run `Deploy` manually once to verify the wiring.
+2. Create a Railway service from `railway.json`, attach the persistent `/data` volume, and configure the backend runtime variables.
+3. Add the Railway project, environment, and service IDs as GitHub `production` Environment Variables.
+4. Add the Vercel token and Railway project token as GitHub Environment Secrets.
+5. Set `PUBLIC_BASE_URL` to the backend HTTPS origin and `FRONTEND_ORIGIN` to the Vercel HTTPS origin.
+6. Set `BACKEND_PUBLIC_URL` and `FRONTEND_PUBLIC_URL` in GitHub, then run `Deploy` manually once to verify the wiring.
 
 The backend health endpoint is `GET /health`. A successful deployment returns `{ "ok": true, "service": "digital-heroes-api" }`.

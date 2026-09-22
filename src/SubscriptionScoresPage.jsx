@@ -19,6 +19,20 @@ function planPrice(plan) {
   return Number(plan?.price || 0).toLocaleString("en-IN")
 }
 
+let razorpayScriptPromise
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve()
+  if (razorpayScriptPromise) return razorpayScriptPromise
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = "https://checkout.razorpay.com/v1/checkout.js"
+    script.onload = resolve
+    script.onerror = () => reject(new Error("Secure payment checkout could not be loaded."))
+    document.head.appendChild(script)
+  })
+  return razorpayScriptPromise
+}
+
 function EngineScene({ plans, plan, onPlanSelect }) {
   const group = useRef(null)
   const { pointer } = useThree()
@@ -63,12 +77,36 @@ function CheckoutPanel({ plan, charity, onCharityChange, snapshot, session, subs
     if (!selectedPlan || !charity) { setMessage("Choose an available plan and charity."); setStatus("error"); return }
     try {
       const data = await readJson("/api/checkout/session", { method: "POST", body: JSON.stringify({ name, email, plan, charity, currency: "INR" }) })
+      if (data.provider === "razorpay") {
+        await loadRazorpay()
+        const checkout = new window.Razorpay({
+          ...data.checkoutOptions,
+          handler: async (payment) => {
+            try {
+              await readJson("/api/checkout/razorpay/verify", { method: "POST", body: JSON.stringify(payment) })
+              setMessage("Payment confirmed. Your membership is now active.")
+              setStatus("success")
+              await onRefreshAccount?.()
+            } catch (error) {
+              setMessage(error.message || "Payment verification could not be completed.")
+              setStatus("error")
+            }
+          },
+          modal: { ondismiss: () => setStatus("idle") },
+        })
+        checkout.on("payment.failed", (response) => {
+          setMessage(response.error?.description || "Payment was not completed.")
+          setStatus("error")
+        })
+        checkout.open()
+        return
+      }
       if (data.checkoutUrl) { window.location.assign(data.checkoutUrl); return }
       setMessage(`Checkout session ${data.id} created.`); setStatus("success"); await onRefreshAccount?.()
     } catch (error) { setMessage(error.message || "Checkout could not be started."); setStatus("error") }
   }
-  if (status === "success") return <div className="checkout-success"><span className="success-mark"><Check size={22} /></span><p className="eyebrow"><span className="eyebrow-line" /> Checkout ready</p><h3>{message}</h3><p>Stripe will confirm the subscription and the backend will update your membership status from its webhook.</p><button className="text-button" onClick={() => setStatus("idle")} type="button">Start another checkout <RotateCcw size={15} /></button></div>
-  return <form className="checkout-form" onSubmit={submit} noValidate><div className="checkout-step"><span>02</span><div><strong>Secure Stripe checkout</strong><small>After payment, the active subscription is read back from the database.</small></div><LockKeyhole size={16} /></div>{session ? <p className="score-status score-status-success">Signed in as {session.email}. Current status: {subscription?.status || (session.plan ? "active" : "inactive")}.</p> : null}<label>Name<input autoComplete="name" name="name" placeholder="Your name" required /></label><label>Email<input autoComplete="email" name="email" placeholder="you@example.com" required type="email" /></label><label>Charity<select value={charity} onChange={(event) => onCharityChange(event.target.value)} required>{charities.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label><div className="checkout-total"><span>{selectedPlan?.name || "Plan"}</span><strong>INR {planPrice(selectedPlan)}</strong><small>/{selectedPlan?.cadence || "—"}</small></div>{status === "error" ? <p className="form-error" role="alert">{message}</p> : null}<button className="button button-primary full-width" disabled={status === "loading" || !selectedPlan || !charity} type="submit">{status === "loading" ? "Opening Stripe..." : "Continue to checkout"}<ArrowUpRight size={16} /></button><p className="checkout-note"><CreditCard size={14} /> Secure Stripe handoff / recurring INR billing</p><p className="checkout-impact"><HeartHandshake size={14} /> At least 10% of INR {planPrice(selectedPlan)} supports {charity || "your chosen cause"}.</p></form>
+  if (status === "success") return <div className="checkout-success"><span className="success-mark"><Check size={22} /></span><p className="eyebrow"><span className="eyebrow-line" /> Payment confirmed</p><h3>{message}</h3><p>Your payment provider has confirmed the checkout. The backend will keep your membership status in sync.</p><button className="text-button" onClick={() => setStatus("idle")} type="button">Start another checkout <RotateCcw size={15} /></button></div>
+  return <form className="checkout-form" onSubmit={submit} noValidate><div className="checkout-step"><span>02</span><div><strong>Secure payment checkout</strong><small>After payment, your active membership is read back from the database.</small></div><LockKeyhole size={16} /></div>{session ? <p className="score-status score-status-success">Signed in as {session.email}. Current status: {subscription?.status || (session.plan ? "active" : "inactive")}.</p> : null}<label>Name<input autoComplete="name" name="name" placeholder="Your name" required /></label><label>Email<input autoComplete="email" name="email" placeholder="you@example.com" required type="email" /></label><label>Charity<select value={charity} onChange={(event) => onCharityChange(event.target.value)} required>{charities.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label><div className="checkout-total"><span>{selectedPlan?.name || "Plan"}</span><strong>INR {planPrice(selectedPlan)}</strong><small>/{selectedPlan?.cadence || "—"}</small></div>{status === "error" ? <p className="form-error" role="alert">{message}</p> : null}<button className="button button-primary full-width" disabled={status === "loading" || !selectedPlan || !charity} type="submit">{status === "loading" ? "Opening secure checkout..." : "Continue to checkout"}<ArrowUpRight size={16} /></button><p className="checkout-note"><CreditCard size={14} /> Secure payment handoff / INR billing</p><p className="checkout-impact"><HeartHandshake size={14} /> At least 10% of INR {planPrice(selectedPlan)} supports {charity || "your chosen cause"}.</p></form>
 }
 
 function LoginPanel({ onAuthenticated }) {

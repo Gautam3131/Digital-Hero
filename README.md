@@ -70,6 +70,7 @@ Set these server-side environment variables in the deployment environment:
 
 - `STRIPE_SECRET_KEY`: live Stripe secret key; never expose it to the browser
 - `STRIPE_WEBHOOK_SECRET`: signing secret for the `/api/stripe/webhook` endpoint
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`: server-side Razorpay client credentials; the instance is initialized only when both values are present
 - `PUBLIC_BASE_URL`: public HTTPS origin used for Stripe success and cancel redirects
 - `FRONTEND_ORIGIN`: exact frontend HTTPS origin allowed to make credentialed API requests
 - `DH_DB_PATH`: persistent SQLite path, such as `/data/digital-heroes.sqlite` on Render

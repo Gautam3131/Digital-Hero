@@ -401,7 +401,7 @@ function LandingPage() {
         </section>
       </main>
 
-      <footer className="site-footer container"><button className="wordmark" onClick={() => scrollTo("top")} type="button"><span className="wordmark-dot" /> digital <strong>heroes</strong></button><span>Built for the next good round.</span><a href="mailto:hello@digitalheroes.co.in">hello@digitalheroes.co.in <ArrowUpRight size={14} /></a></footer>
+      <footer className="site-footer container"><button className="wordmark" onClick={() => scrollTo("top")} type="button"><span className="wordmark-dot" /> digital <strong>heroes</strong></button><span className="site-signature"><span>Built for the next good round.</span><strong>Gautam</strong></span><a href="mailto:hello@digitalheroes.co.in">hello@digitalheroes.co.in <ArrowUpRight size={14} /></a></footer>
 
       {dialog === "signup" ? <SignupModal charity={selectedCharity} onClose={() => setDialog(null)} plan={plan} planName={selectedPlan?.name} /> : null}
       {dialog === "draw" ? <Modal eyebrow="The monthly draw" onClose={() => setDialog(null)} title="A prize pool with a pulse."><div className="draw-modal-list"><p><span>01</span><strong>Every active plan adds to the pool.</strong></p><p><span>02</span><strong>Scores stay in a five-number rolling window.</strong></p><p><span>03</span><strong>Winners verify, payouts move, and jackpots roll.</strong></p></div><button className="button button-primary full-width" onClick={() => setDialog("signup")} type="button">Join the first draw <ArrowUpRight size={16} /></button></Modal> : null}

@@ -1,4 +1,5 @@
 import express from "express"
+import Razorpay from "razorpay"
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto"
 import { mkdirSync, existsSync } from "node:fs"
 import { join } from "node:path"
@@ -20,6 +21,11 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY || ""
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ""
 const mockStripeMode = process.env.STRIPE_MOCK_MODE === "true" && !isProduction
 const webhookSigningSecret = stripeWebhookSecret || (mockStripeMode ? "mock-webhook-secret" : "")
+const razorpayKeyId = process.env.RAZORPAY_KEY_ID || ""
+const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || ""
+const razorpay = razorpayKeyId && razorpayKeySecret
+  ? new Razorpay({ key_id: razorpayKeyId, key_secret: razorpayKeySecret })
+  : null
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")
 const frontendOrigin = (process.env.FRONTEND_ORIGIN || "").replace(/\/$/, "")
 const geminiApiKey = process.env.GEMINI_API_KEY || ""

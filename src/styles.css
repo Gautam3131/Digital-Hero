@@ -195,6 +195,8 @@ h1 em, h2 em { color: var(--coral); font-family: var(--serif); font-weight: 600;
 
 .site-footer { display: flex; align-items: center; justify-content: space-between; min-height: 110px; border-top: 1px solid var(--line); color: var(--muted); font: 11px var(--mono); }
 .site-footer a { display: inline-flex; align-items: center; gap: 7px; color: var(--lime); }
+.site-signature { display: inline-flex; align-items: baseline; gap: 12px; }
+.site-signature strong { color: var(--text); font: 400 18px var(--serif); letter-spacing: .01em; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(4, 12, 16, .82); backdrop-filter: blur(12px); }
 .modal-card { position: relative; width: min(100%, 470px); padding: 34px; border: 1px solid rgba(215, 250, 107, .35); border-radius: 8px; background: #11282e; box-shadow: 0 24px 100px rgba(0, 0, 0, .45); }
@@ -264,6 +266,7 @@ h1 em, h2 em { color: var(--coral); font-family: var(--serif); font-weight: 600;
   .subscribe-section { min-height: auto; padding-top: 70px; padding-bottom: 70px; }
   .plan-panel { padding: 18px; }
   .site-footer { align-items: flex-start; flex-direction: column; gap: 16px; padding-top: 28px; padding-bottom: 28px; }
+  .site-signature { gap: 9px; }
   .modal-card { padding: 28px 22px 22px; }
   .modal-card h2 { font-size: 32px; }
 }

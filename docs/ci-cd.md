@@ -16,7 +16,7 @@ Create a GitHub Environment named `production`. Add these non-secret Variables:
 | `VERCEL_ORG_ID` | `team_replace_me` | Vercel project selection |
 | `VERCEL_PROJECT_ID` | `prj_replace_me` | Vercel project selection |
 
-Add these Environment Secrets:
+Add these repository or `production` Environment Secrets:
 
 | Secret | Purpose |
 | --- | --- |
@@ -24,8 +24,10 @@ Add these Environment Secrets:
 | `RENDER_DEPLOY_HOOK_URL` | Render deploy hook for the backend service |
 | `GEMINI_API_KEY` | Server-only Gemini API key injected into the backend deployment job |
 | `MONGODB_URI` | Server-only MongoDB connection string injected into the backend deployment job |
+| `RAZORPAY_KEY_ID` | Server-only Razorpay public key used to initialize the backend client |
+| `RAZORPAY_KEY_SECRET` | Server-only Razorpay secret used to initialize the backend client |
 
-The workflow uses the built-in `GITHUB_TOKEN` for GHCR package publishing. No API key should be committed to this repository or exposed through a `VITE_*` variable. The backend job maps `GEMINI_API_KEY` and `MONGODB_URI` from repository secrets into masked environment variables; the Render service must use the same names in its encrypted runtime environment.
+The workflow uses the built-in `GITHUB_TOKEN` for GHCR package publishing. No API key should be committed to this repository or exposed through a `VITE_*` variable. The backend job maps `MONGODB_URI`, `GEMINI_API_KEY`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` from repository secrets into masked environment variables; the Render service must use the same names in its encrypted runtime environment.
 
 ## Backend Runtime Variables
 
@@ -39,6 +41,8 @@ FRONTEND_ORIGIN=https://app.example.com
 DH_DB_PATH=/data/digital-heroes.sqlite
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
+RAZORPAY_KEY_ID=rzp_live_replace_me
+RAZORPAY_KEY_SECRET=replace_me
 STRIPE_MOCK_MODE=false
 GEMINI_API_KEY=replace_me
 GEMINI_MODEL=gemini-2.0-flash

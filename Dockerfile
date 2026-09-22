@@ -18,6 +18,5 @@ USER node
 
 ENV DH_DB_PATH=/data/digital-heroes.sqlite
 EXPOSE 8787
-VOLUME ["/data"]
 
 CMD ["node", "server.mjs"]

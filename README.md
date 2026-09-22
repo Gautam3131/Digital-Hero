@@ -22,6 +22,8 @@ Open `http://localhost:8787/subscription-scores` for page three.
 
 Open `http://localhost:8787/admin-dashboard` for the administrator control room.
 
+Open `http://localhost:8787/admin-content` for the role-protected content publishing studio.
+
 Open `http://localhost:8787/winner-verification` for the dedicated Winner Verification & Payout Management proofroom. The local demo admin is `admin@digitalheroes.local` / `demo-admin`.
 
 Open `http://localhost:8787/past-draws` for the public draw archive and charity impact ledger.
@@ -79,8 +81,8 @@ Set these server-side environment variables in the deployment environment:
 - `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD`: optional local bootstrap credentials
 - `GEMINI_API_KEY`: server-side Gemini API key for AI support; never expose it to the browser
 - `GEMINI_MODEL`: optional Gemini model name, defaulting to `gemini-2.0-flash`
-- `MONGODB_URI`: server-only MongoDB connection string for the native winner workflow mirror
-- `MONGODB_DATA_API_URL`, `MONGODB_DATA_API_KEY`, `MONGODB_DATA_SOURCE`, `MONGODB_DATABASE`, and `MONGODB_WINNER_COLLECTION`: optional MongoDB Atlas Data API alternative for mirrored winner cases and workflow audit events
+- `MONGODB_URI`: server-only MongoDB connection string for the native application snapshot and winner workflow mirror
+- `MONGODB_DATA_API_URL`, `MONGODB_DATA_API_KEY`, `MONGODB_DATA_SOURCE`, `MONGODB_DATABASE`, and `MONGODB_WINNER_COLLECTION`: optional MongoDB Atlas Data API alternative for application snapshots and mirrored winner workflow events
 
 ## Mock Stripe flow
 

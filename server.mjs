@@ -5,7 +5,7 @@ import { mkdirSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { DatabaseSync } from "node:sqlite"
-import { mirrorWinnerWorkflow, mongoWinnerStorage } from "./mongo-winner-storage.mjs"
+import { mirrorWinnerWorkflow, mongoStatus, mongoWinnerStorage, syncSqliteSnapshot } from "./mongo-winner-storage.mjs"
 
 const root = fileURLToPath(new URL(".", import.meta.url))
 const dist = join(root, "dist")
@@ -211,6 +211,28 @@ function seedDatabase() {
 }
 
 seedDatabase()
+
+let mongoSyncQueue = Promise.resolve()
+function scheduleMongoSnapshot() {
+  if (!mongoWinnerStorage.configured) return
+  mongoSyncQueue = mongoSyncQueue.then(() => syncSqliteSnapshot(db)).catch((error) => {
+    mongoWinnerStorage.lastError = error.message
+    console.error(`MongoDB snapshot sync failed: ${error.message}`)
+  })
+}
+
+void syncSqliteSnapshot(db).catch((error) => {
+  if (mongoWinnerStorage.configured) console.error(`MongoDB startup sync failed: ${error.message}`)
+})
+
+app.use((req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    res.on("finish", () => {
+      if (res.statusCode < 400) scheduleMongoSnapshot()
+    })
+  }
+  next()
+})
 
 function setSessionCookie(res, token) {
   const secure = isProduction ? "; Secure" : ""
@@ -600,7 +622,8 @@ function publicSnapshot() {
   const counts = db.prepare(`SELECT
     (SELECT COUNT(*) FROM members WHERE role = 'subscriber' AND plan IS NOT NULL) AS activeMembers,
     (SELECT COALESCE(SUM(amount_minor), 0) FROM subscriptions WHERE status = 'active') AS prizePoolMinor,
-    (SELECT COALESCE(SUM(amount_minor * 10 / 100), 0) FROM subscriptions WHERE status = 'active') AS charityContributionMinor`).get()
+    (SELECT COALESCE(SUM(amount_minor * 10 / 100), 0) FROM subscriptions WHERE status = 'active') AS charityContributionMinor,
+    (SELECT MAX(updated_at) FROM subscriptions WHERE status = 'active') AS poolUpdatedAt`).get()
   const featuredCharity = db.prepare("SELECT name, category, note FROM charities WHERE active = 1 ORDER BY rowid ASC LIMIT 1").get() || { name: "No active cause", category: "Directory empty", note: "An administrator can add the first active cause." }
   const nextDate = new Date()
   nextDate.setUTCMonth(nextDate.getUTCMonth() + 1, 1)
@@ -609,6 +632,7 @@ function publicSnapshot() {
   return {
     activeMembers: Number(counts.activeMembers),
     prizePoolMinor: Number(counts.prizePoolMinor),
+    pool: { amountMinor: Number(counts.prizePoolMinor), amount: Number(counts.prizePoolMinor) / 100, currency: "INR", updatedAt: counts.poolUpdatedAt || null },
     charityTotal: Math.floor(Number(counts.charityContributionMinor) / 100),
     charityContributionMinor: Number(counts.charityContributionMinor),
     nextDraw: `${daysUntilDraw} day${daysUntilDraw === 1 ? "" : "s"}`,
@@ -649,6 +673,23 @@ function publicDrawResponse(draw) {
 
 function helpArticleResponse(article) {
   return { id: article.id, slug: article.slug, category: article.category, title: article.title, excerpt: article.excerpt, body: article.body, tags: parseJson(article.tags_json, []), popular: Boolean(article.popular) }
+}
+
+function adminArticleResponse(article) {
+  return { ...helpArticleResponse(article), active: Boolean(article.active), createdAt: article.created_at, updatedAt: article.updated_at }
+}
+
+function contentInput(body, existing = {}) {
+  const rawTags = body?.tags ?? parseJson(existing.tags_json, [])
+  const tags = Array.isArray(rawTags) ? rawTags : String(rawTags || "").split(",")
+  return {
+    slug: String(body?.slug ?? existing.slug ?? "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "").slice(0, 100),
+    category: String(body?.category ?? existing.category ?? "").trim().slice(0, 80),
+    title: String(body?.title ?? existing.title ?? "").trim().slice(0, 160),
+    excerpt: String(body?.excerpt ?? existing.excerpt ?? "").trim().slice(0, 300),
+    body: String(body?.body ?? existing.body ?? "").trim().slice(0, 10000),
+    tags: tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean).slice(0, 12),
+  }
 }
 
 function findHelpArticles(query = "", category = "") {
@@ -740,7 +781,7 @@ app.use((req, res, next) => {
   next()
 })
 
-app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local" }))
+app.get("/health", (_req, res) => res.json({ ok: true, service: "digital-heroes-api", version: process.env.GITHUB_SHA || "local", mongo: mongoStatus() }))
 
 app.get("/api/impact", (_req, res) => res.set("Cache-Control", "no-store").json(publicSnapshot()))
 
@@ -783,6 +824,51 @@ app.get("/api/help/articles/:slug", (req, res) => {
   const article = db.prepare("SELECT id, slug, category, title, excerpt, body, tags_json, popular FROM help_articles WHERE slug = ? AND active = 1").get(req.params.slug)
   if (!article) return res.status(404).json({ message: "That help article could not be found." })
   return res.set("Cache-Control", "no-store").json({ article: helpArticleResponse(article) })
+})
+
+app.get("/api/admin/content", requireRole("admin"), (_req, res) => {
+  const articles = db.prepare("SELECT id, slug, category, title, excerpt, body, tags_json, popular, active, created_at, updated_at FROM help_articles ORDER BY updated_at DESC, sort_order ASC").all().map(adminArticleResponse)
+  return res.json({ articles })
+})
+
+app.post("/api/admin/content", requireRole("admin"), (req, res) => {
+  const input = contentInput(req.body)
+  if (!input.slug || !input.category || !input.title || !input.excerpt || !input.body) return res.status(422).json({ message: "Slug, category, title, excerpt, and body are required." })
+  const timestamp = now()
+  try {
+    const articleId = id("article")
+    db.prepare("INSERT INTO help_articles (id, slug, category, title, excerpt, body, tags_json, popular, active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)").run(articleId, input.slug, input.category, input.title, input.excerpt, input.body, JSON.stringify(input.tags), req.body?.active === false ? 0 : 1, timestamp, timestamp)
+    return res.status(201).json({ article: adminArticleResponse(db.prepare("SELECT * FROM help_articles WHERE id = ?").get(articleId)) })
+  } catch (error) {
+    if (String(error.message).includes("UNIQUE")) return res.status(409).json({ message: "That content slug already exists." })
+    throw error
+  }
+})
+
+app.patch("/api/admin/content/:id", requireRole("admin"), (req, res) => {
+  const existing = db.prepare("SELECT * FROM help_articles WHERE id = ?").get(req.params.id)
+  if (!existing) return res.status(404).json({ message: "That content record could not be found." })
+  const input = contentInput(req.body, existing)
+  if (!input.slug || !input.category || !input.title || !input.excerpt || !input.body) return res.status(422).json({ message: "Slug, category, title, excerpt, and body are required." })
+  try {
+    db.prepare("UPDATE help_articles SET slug = ?, category = ?, title = ?, excerpt = ?, body = ?, tags_json = ?, active = ?, updated_at = ? WHERE id = ?").run(input.slug, input.category, input.title, input.excerpt, input.body, JSON.stringify(input.tags), req.body?.active === false ? 0 : 1, now(), req.params.id)
+    return res.json({ article: adminArticleResponse(db.prepare("SELECT * FROM help_articles WHERE id = ?").get(req.params.id)) })
+  } catch (error) {
+    if (String(error.message).includes("UNIQUE")) return res.status(409).json({ message: "That content slug already exists." })
+    throw error
+  }
+})
+
+app.post("/api/admin/content/:id/publish", requireRole("admin"), (req, res) => {
+  const result = db.prepare("UPDATE help_articles SET active = 1, updated_at = ? WHERE id = ?").run(now(), req.params.id)
+  if (!result.changes) return res.status(404).json({ message: "That content record could not be found." })
+  return res.json({ article: adminArticleResponse(db.prepare("SELECT * FROM help_articles WHERE id = ?").get(req.params.id)) })
+})
+
+app.post("/api/admin/content/:id/unpublish", requireRole("admin"), (req, res) => {
+  const result = db.prepare("UPDATE help_articles SET active = 0, updated_at = ? WHERE id = ?").run(now(), req.params.id)
+  if (!result.changes) return res.status(404).json({ message: "That content record could not be found." })
+  return res.json({ article: adminArticleResponse(db.prepare("SELECT * FROM help_articles WHERE id = ?").get(req.params.id)) })
 })
 
 app.post("/api/help/chat", async (req, res) => {
@@ -990,7 +1076,8 @@ app.get("/api/admin/overview", requireRole("admin"), (_req, res) => {
     (SELECT COUNT(*) FROM subscriptions WHERE status = 'active') AS activeSubscriptions,
     (SELECT COUNT(*) FROM draws WHERE status = 'published') AS publishedDraws,
     (SELECT COUNT(*) FROM winners WHERE status = 'pending') AS pendingWinners,
-    (SELECT COALESCE(MAX(pool_minor + jackpot_rollover_minor), 0) FROM draws WHERE status IN ('simulated', 'published', 'completed')) AS prizePoolMinor,
+    (SELECT COALESCE(SUM(amount_minor), 0) FROM subscriptions WHERE status = 'active') AS prizePoolMinor,
+    (SELECT MAX(updated_at) FROM subscriptions WHERE status = 'active') AS poolUpdatedAt,
     (SELECT COALESCE(SUM(amount_minor * 10 / 100), 0) FROM subscriptions WHERE status = 'active') AS charityContributionMinor`).get()
   const charityTotals = db.prepare("SELECT charity, COALESCE(SUM(amount_minor * 10 / 100), 0) AS amountMinor FROM subscriptions WHERE status = 'active' GROUP BY charity ORDER BY amountMinor DESC").all()
   const latestDraw = db.prepare("SELECT * FROM draws ORDER BY created_at DESC LIMIT 1").get()

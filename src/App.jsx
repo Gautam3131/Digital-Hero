@@ -4,6 +4,7 @@ import { OrbitControls, Sparkles as SparkleField } from "@react-three/drei"
 import RolesObjectivesPage from "./RolesObjectivesPage"
 import SubscriptionScoresPage from "./SubscriptionScoresPage"
 import AdminDashboardPage from "./AdminDashboardPage"
+import AdminContentPage from "./AdminContentPage"
 import PastDrawsPage from "./PastDrawsPage"
 import HelpCenterPage from "./HelpCenterPage"
 import SubscriberDashboardPage from "./SubscriberDashboardPage"
@@ -425,6 +426,7 @@ function App() {
   if (path === "/subscriber-dashboard") return <SubscriberDashboardPage />
   if (path === "/winner-verification") return <WinnerVerificationPage />
   if (path === "/admin-dashboard") return <AdminDashboardPage />
+  if (path === "/admin-content") return <AdminContentPage />
   return <LandingPage />
 }
 

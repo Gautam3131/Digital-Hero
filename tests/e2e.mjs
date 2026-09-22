@@ -71,6 +71,7 @@ async function run() {
   assert.equal(typeof result.body.payments.provider, "string")
   assert.equal(typeof result.body.auth.googleConfigured, "boolean")
   assert.equal(typeof result.body.auth.githubConfigured, "boolean")
+  assert.equal(typeof result.body.auth.adminConfigured, "boolean")
   result = await request("/api/auth/providers")
   assert.equal(result.response.status, 200)
   assert.equal(typeof result.body.google, "boolean")

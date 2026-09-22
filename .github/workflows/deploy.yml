@@ -58,11 +58,13 @@ jobs:
           [ -n "$MONGODB_URI" ] || missing+=(MONGODB_URI)
            [ -n "$RAZORPAY_KEY_ID" ] || missing+=(RAZORPAY_KEY_ID)
            [ -n "$RAZORPAY_KEY_SECRET" ] || missing+=(RAZORPAY_KEY_SECRET)
+           [ -n "$DEMO_ADMIN_ACCOUNTS" ] || missing+=(DEMO_ADMIN_ACCOUNTS)
            if [ -n "$GOOGLE_CLIENT_ID" ] && [ -z "$GOOGLE_CLIENT_SECRET" ]; then missing+=(GOOGLE_CLIENT_SECRET); fi
            if [ -n "$GOOGLE_CLIENT_SECRET" ] && [ -z "$GOOGLE_CLIENT_ID" ]; then missing+=(GOOGLE_CLIENT_ID); fi
            if [ -n "$GITHUB_CLIENT_ID" ] && [ -z "$GITHUB_CLIENT_SECRET" ]; then missing+=(GITHUB_CLIENT_SECRET); fi
            if [ -n "$GITHUB_CLIENT_SECRET" ] && [ -z "$GITHUB_CLIENT_ID" ]; then missing+=(GITHUB_CLIENT_ID); fi
-          if [ "${#missing[@]}" -gt 0 ]; then
+           if [ -n "$DEMO_ADMIN_ACCOUNTS" ] && ! node -e 'const accounts = JSON.parse(process.env.DEMO_ADMIN_ACCOUNTS); if (!Array.isArray(accounts) || !accounts.length || accounts.some((account) => !account?.email || !account?.password)) process.exit(1)' 2>/dev/null; then missing+=(DEMO_ADMIN_ACCOUNTS_INVALID); fi
+           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Missing production configuration: %s\n' "${missing[*]}"
             exit 1
           fi

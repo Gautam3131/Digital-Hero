@@ -61,7 +61,7 @@
 
 .orbit-stage { min-height: 575px; overflow: hidden; background: radial-gradient(ellipse 58% 42% at 55% 86%, rgba(75, 120, 226, .2), transparent 70%), radial-gradient(ellipse 48% 35% at 72% 59%, rgba(205, 224, 255, .64), transparent 76%), linear-gradient(180deg, #fcfcfb 0%, #f3f7ff 100%); }
 .orbit-stage::before { position: absolute; right: 8%; bottom: 11%; left: 9%; height: 1px; background: linear-gradient(90deg, transparent, rgba(69, 100, 222, .28), transparent); content: ""; transform: rotate(-8deg); }
-.orbit-stage > div:first-child { position: absolute; inset: 0; }
+.orbit-stage > div:first-child { position: absolute !important; inset: 0 !important; }
 .orbit-stage canvas { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; cursor: grab; touch-action: none; }
 .orbit-stage canvas:active { cursor: grabbing; }
 .orbit-stage-topline { position: absolute; top: 24px; right: 27px; left: 27px; display: flex; justify-content: space-between; color: rgba(20,32,82,.58); font: 10px var(--mono, monospace); letter-spacing: .08em; text-transform: uppercase; }

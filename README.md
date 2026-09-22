@@ -73,7 +73,7 @@ Set these server-side environment variables in the deployment environment:
 - `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`: server-side Razorpay client credentials; the instance is initialized only when both values are present
 - `PUBLIC_BASE_URL`: public HTTPS origin used for Stripe success and cancel redirects
 - `FRONTEND_ORIGIN`: exact frontend HTTPS origin allowed to make credentialed API requests
-- `DH_DB_PATH`: persistent SQLite path, such as `/data/digital-heroes.sqlite` on Render
+- `DH_DB_PATH`: persistent SQLite path, such as `/data/digital-heroes.sqlite`; on Railway, attach a persistent volume mounted at `/data`
 - `STRIPE_MOCK_MODE`: set to `true` only for local testing; it is disabled automatically in production
 - `DEMO_SUBSCRIBER_EMAIL` and `DEMO_SUBSCRIBER_PASSWORD`: optional local bootstrap credentials
 - `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD`: optional local bootstrap credentials

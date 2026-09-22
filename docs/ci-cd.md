@@ -56,6 +56,8 @@ MONGODB_WINNER_COLLECTION=winner_workflows
 
 `DEMO_SUBSCRIBER_EMAIL`, `DEMO_SUBSCRIBER_PASSWORD`, `DEMO_ADMIN_EMAIL`, and `DEMO_ADMIN_PASSWORD` are optional development bootstrap values. Do not use demo credentials as a production identity system.
 
+For Railway, attach a persistent volume to the service at `/data`. The Docker image keeps SQLite at `/data/digital-heroes.sqlite`; the runtime remains able to open the volume after Railway mounts it.
+
 ## Frontend Build Variables
 
 The deploy workflow injects these public origins while Vercel builds the React bundle:

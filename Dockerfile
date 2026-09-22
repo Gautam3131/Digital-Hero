@@ -13,7 +13,9 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 RUN mkdir -p /data && chown -R node:node /app /data
-USER node
+# Railway attaches persistent volumes after image build; keep the runtime user
+# able to open the mounted /data directory.
+USER root
 
 ENV DH_DB_PATH=/data/digital-heroes.sqlite
 EXPOSE 8787

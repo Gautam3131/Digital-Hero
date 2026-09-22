@@ -68,6 +68,7 @@ async function run() {
   assert.equal(result.response.status, 200)
   assert.equal(result.body.ok, true)
   assert.equal(result.body.service, "digital-heroes-api")
+  assert.equal(typeof result.body.payments.provider, "string")
 
   result = await request("/api/impact")
   assert.equal(result.response.status, 200)
@@ -307,6 +308,8 @@ async function run() {
   assert.equal(result.response.status, 422)
   result = await request("/api/checkout/session/status?session_id=cs_missing")
   assert.equal(result.response.status, 404)
+  result = await jsonRequest("/api/checkout/razorpay/verify", "POST", { razorpay_order_id: "order_missing", razorpay_payment_id: "pay_missing", razorpay_signature: "invalid" })
+  assert.equal(result.response.status, 400)
   result = await jsonRequest("/api/checkout/session", "POST", { name: "Checkout Tester", email: "checkout@example.com", plan: "monthly", charity: "The Good Grief Trust", currency: "INR" })
   if (useMockStripe) {
     assert.equal(result.response.status, 201)
